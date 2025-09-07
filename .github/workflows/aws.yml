@@ -233,7 +233,7 @@ jobs:
       id: render-task-definition
       uses: aws-actions/amazon-ecs-render-task-definition@v1
       with:
-        task极definition: task-definition.json
+        taskdefinition: task-definition.json
         container-name: ${{ env.CONTAINER_NAME }}
         image: ${{ steps.build-image.outputs.image }}
     
@@ -256,7 +256,7 @@ jobs:
     
     - name: ⏳ Wait for service stabilization
       run: |
-        echo极"Waiting for service to stabilize..."
+        echo "Waiting for service to stabilize..."
         aws ecs wait services-stable \
           --cluster $ECS_CLUSTER \
           --services $ECS_SERVICE \
@@ -280,7 +280,7 @@ jobs:
         NETWORK_INTERFACE_ID=$(aws ecs describe-tasks \
           --cluster $ECS_CLUSTER \
           --tasks $TASK_ARN \
-          --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].极value' \
+          --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
           --output text)
         
         if [ -z "$NETWORK_INTERFACE_ID" ]; then
@@ -332,7 +332,7 @@ jobs:
       always() && 
       (needs.test.result == 'failure' || needs.security-scan.result == 'failure' || needs.deploy.result == 'failure') &&
       github.ref == '极refs/heads/main'
-    needs: [极test, security-scan, deploy]
+    needs: [test, security-scan, deploy]
     
     steps:
     - name: 🔐 Configure AWS credentials

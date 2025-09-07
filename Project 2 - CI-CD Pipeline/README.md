@@ -1,8 +1,4 @@
-
----
-
-```markdown
-# 🚀 Project 2: Automated Deployment Pipeline (AWS)
+### 🚀 Project 2: Automated Deployment Pipeline (AWS)
 
 A complete CI/CD pipeline that automatically tests, builds, and deploys your Node.js web application to AWS ECS Fargate using GitHub Actions.
 

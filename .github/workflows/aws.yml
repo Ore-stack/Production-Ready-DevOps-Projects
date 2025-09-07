@@ -259,7 +259,7 @@ jobs:
       with:
         task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
         service: ${{ env.ECS_SERVICE }}
-        cluster: webapp-cicd-cluster
+        cluster: my-devops-cluster
         wait-for-service-stability: true
         timeout: 600
     

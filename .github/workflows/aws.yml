@@ -23,6 +23,10 @@ env:
   TRIVY_SEVERITY: 'CRITICAL,HIGH'
   TRIVY_EXIT_CODE: '1'
 
+permissions:
+  actions: read
+  security-events: write   # Required for SARIF uploads
+
 jobs:
   test:
     name: 🧪 Test Application
@@ -54,6 +58,10 @@ jobs:
       run: npm run lint --if-present || echo "Linting not configured"
       working-directory: '${{ env.PROJECT_DIR }}'
     
+    - name: Run ESLint
+      run: npx eslint . --fix 
+      working-directory: '${{ env.PROJECT_DIR }}' 
+    
     - name: ✅ Run tests
       run: npm test -- --passWithNoTests
       working-directory: '${{ env.PROJECT_DIR }}'
@@ -80,6 +88,21 @@ jobs:
       run: |
         docker build -t local-webapp:latest .
       working-directory: '${{ env.PROJECT_DIR }}'
+
+    - name: Install Trivy
+      uses: aquasecurity/setup-trivy@v1
+      with:
+        version: 0.66.0
+
+    - name: Run Trivy Scan
+      run: |
+        mkdir -p trivy-reports
+        trivy image --format sarif --output trivy-reports/trivy-results.sarif local-webapp:latest || true
+
+    - name: Upload Trivy SARIF report
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: trivy-reports/trivy-results.sarif
     
     - name: 🔍 Scan Docker image with Trivy
       uses: aquasecurity/trivy-action@master
@@ -114,7 +137,23 @@ jobs:
       if: always() # Upload even if tests fail
       with:
         sarif_file: trivy-results.sarif
+  
+  codeql-analysis:
+    runs-on: ubuntu-latest
+    needs: build-and-lint
 
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+              
   deploy:
     name: 🚀 Deploy to Production
     runs-on: ubuntu-latest

@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    paths:
+      - 'Project 2 - CI-CD Pipeline/**'
   workflow_dispatch:
 
 env:
@@ -29,80 +31,128 @@ jobs:
     name: 🧪 Test Application
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
+    
     defaults:
       run:
-        working-directory: ${{ env.PROJECT_DIR }}
-
+        working-directory: '${{ env.PROJECT_DIR }}'
+    
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: '${{ env.PROJECT_DIR }}/package-lock.json'
-
-      - name: 📦 Install dependencies
-        run: npm ci --audit false
-
-      - name: 🔍 Run linting
-        run: npm run lint --if-present || echo "Linting not configured"
-
-      - name: ✅ Run tests
-        run: npm test -- --passWithNoTests
-        env:
-          NODE_ENV: test
-
-      - name: 🐳 Test Docker build
-        run: |
-          docker build -t test-build --load .
-          echo "✅ Docker build successful!"
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: ⚙️ Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: '${{ env.PROJECT_DIR }}/package-lock.json'
+    
+    - name: 📦 Install dependencies
+      run: npm ci --audit false
+      working-directory: '${{ env.PROJECT_DIR }}'
+    
+    - name: 🔍 Run linting
+      run: npm run lint --if-present || echo "Linting not configured"
+      working-directory: '${{ env.PROJECT_DIR }}'
+    
+    - name: ✅ Run tests
+      run: npm test -- --passWithNoTests
+      working-directory: '${{ env.PROJECT_DIR }}'
+      env:
+        NODE_ENV: test
+    
+    - name: 🐳 Test Docker build
+      run: |
+        docker build -t test-build --load .
+        echo "✅ Docker build successful!"
+      working-directory: '${{ env.PROJECT_DIR }}'
 
   security-scan:
     name: 🔒 Security Scanning
     runs-on: ubuntu-latest
     needs: test
     if: success()
-
+    
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+    
+    - name: 🐳 Build Docker image
+      run: |
+        docker build -t my-webapp:latest .
+      working-directory: '${{ env.PROJECT_DIR }}'
+    
+    - name: 🔍 Run Trivy vulnerability scanner (always succeed, generate SARIF)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'my-webapp:latest'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: '${{ env.TRIVY_SEVERITY }}'
+        exit-code: '0'   # ✅ never fail here
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+    
+    - name: 📊 Upload Trivy scan results
+      uses: actions/upload-artifact@v4
+      with:
+        name: trivy-scan-results
+        path: trivy-results.sarif
+        retention-days: 7
+    
+    - name: 📋 Display scan summary
+      run: |
+        echo "📊 Vulnerability Scan Summary"
+        echo "============================"
+        trivy image --severity $TRIVY_SEVERITY --ignore-unfixed my-webapp:latest \
+          | grep -E "(CRITICAL|HIGH|MEDIUM|LOW)" || echo "No vulnerabilities found in specified severity levels"
+    
+    - name: ⚠️ Upload results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: trivy-results.sarif
 
-      - name: 🐳 Build Docker image
-        run: |
-          docker build -t my-webapp:latest .
-
-      - name: 🔍 Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'my-webapp:latest'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: ${{ env.TRIVY_SEVERITY }}
-          exit-code: '0'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-
-      - name: 📊 Upload Trivy scan results
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-scan-results
-          path: trivy-results.sarif
-          retention-days: 7
-
-      - name: ❌ Fail job if CRITICAL/HIGH vulnerabilities found
-        run: |
-          if grep -q '"severity":"CRITICAL"' trivy-results.sarif || grep -q '"severity":"HIGH"' trivy-results.sarif; then
-            echo "❌ Critical or High vulnerabilities detected!"
-            exit 1
-          else
-            echo "✅ No Critical/High vulnerabilities found."
-          fi
+    - name: ❌ Fail job if CRITICAL/HIGH vulnerabilities found
+      run: |
+        if grep -q '"severity":"CRITICAL"' trivy-results.sarif || grep -q '"severity":"HIGH"' trivy-results.sarif; then
+          echo "❌ Critical or High vulnerabilities detected!"
+          exit 1
+        else
+          echo "✅ No Critical/High vulnerabilities found."
+        fi
+  codeql-analysis:
+    name: 🔍 CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+    
+    - name: 🔍 Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: javascript
+    
+    - name: ⚙️ Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: 📦 Install dependencies
+      run: npm ci --audit false
+      working-directory: '${{ env.PROJECT_DIR }}'
+    
+    - name: 🔎 Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: '/language:javascript'
 
   deploy:
     name: 🚀 Deploy to Production
@@ -115,163 +165,347 @@ jobs:
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     environment: production
     timeout-minutes: 20
-
+    
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 🔐 Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: 🔐 Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: 🐳 Build Docker image
-        id: build-image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build \
-            --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
-            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
-            .
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
-
-      - name: 📤 Push image to ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-      - name: 🚀 Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ env.ECS_TASK_DEFINITION }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
-
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: 🔐 Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+        mask-aws-account-id: true
+    
+    - name: 📋 Verify AWS access
+      run: |
+        aws sts get-caller-identity
+        echo "✅ AWS credentials verified"
+    
+    - name: 🔐 Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: 🐳 Build Docker image
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build \
+          --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+          --label "org.opencontainers.image.revision=${{ github.sha }}" \
+          --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+          .
+        echo "✅ Docker image built successfully"
+      working-directory: '${{ env.PROJECT_DIR }}'
+    
+    - name: 🔍 Scan production image with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}'
+        format: 'table'
+        severity: '${{ env.TRIVY_SEVERITY }}'
+        exit-code: '${{ env.TRIVY_EXIT_CODE }}'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+    
+    - name: 📤 Push image to ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+        echo "✅ Images pushed to ECR"
+    
+    - name: 📄 Download task definition
+      id: get-task-definition
+      run: |
+        aws ecs describe-task-definition \
+          --task-definition $ECS_TASK_DEFINITION \
+          --query taskDefinition > task-definition.json
+        if [ ! -s task-definition.json ]; then
+          echo "❌ Failed to download task definition"
+          exit 1
+        fi
+        echo "✅ Task definition downloaded"
+    
+    - name: ✏️ Update task definition with new image
+      id: render-task-definition
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: task-definition.json
+        container-name: ${{ env.CONTAINER_NAME }}
+        image: ${{ steps.build-image.outputs.image }}
+    
+    - name: 📝 Register new task definition
+      id: register-task-definition
+      run: |
+        aws ecs register-task-definition \
+          --cli-input-json file://${{ steps.render-task-definition.outputs.task-definition }} \
+          --region ${{ env.AWS_REGION }}
+        echo "✅ New task definition registered"
+    
+    - name: 🚀Deploy to ECS service
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
+        timeout: 600
+    
+    - name: ⏳ Wait for service stabilization
+      run: |
+        echo "Waiting for service to stabilize..."
+        aws ecs wait services-stable \
+          --cluster $ECS_CLUSTER \
+          --services $ECS_SERVICE \
+          --region $AWS_REGION
+        echo "✅ Service is stable"
+    
+    - name: 🌐 Get application URL
+      id: get-url
+      run: |
+        TASK_ARN=$(aws ecs list-tasks \
+          --cluster $ECS_CLUSTER \
+          --service-name $ECS_SERVICE \
+          --query 'taskArns[0]' \
+          --output text)
+        
+        if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
+          echo "❌ No running tasks found"
+          exit 1
+        fi
+        
+        NETWORK_INTERFACE_ID=$(aws ecs describe-tasks \
+          --cluster $ECS_CLUSTER \
+          --tasks $TASK_ARN \
+          --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
+          --output text)
+        
+        if [ -z "$NETWORK_INTERFACE_ID" ]; then
+          echo "❌ Could not get network interface"
+          exit 1
+        fi
+        
+        PUBLIC_IP=$(aws ec2 describe-network-interfaces \
+          --network-interface-ids $NETWORK_INTERFACE_ID \
+          --query 'NetworkInterfaces[0].Association.PublicIp' \
+          --output text)
+        
+        if [ -z "$PUBLIC_IP" ] || [ "$PUBLIC_IP" = "None" ]; then
+          echo "❌ Could not get public IP"
+          exit 1
+        fi
+        
+        echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
+        echo "APPLICATION_URL=http://$PUBLIC_IP:$CONTAINER_PORT" >> $GITHUB_ENV
+        echo "✅ Application URL determined"
+    
+    - name: 📋 Create deployment summary
+      run: |
+        echo "# 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🔒 Security Scan Passed" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Docker image scanned with Trivy - No critical/high vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📊 Deployment Details" >> $GITHUB_STEP_SUMMARY
+        echo "- **Application**: ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+        echo "- **Deployed by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Timestamp**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🌐 Application URLs" >> $GITHUB_STEP_SUMMARY
+        echo "- **Main Application**: [$APPLICATION_URL]($APPLICATION_URL)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Health Check**: [$APPLICATION_URL/health]($APPLICATION_URL/health)" >> $GITHUB_STEP_SUMMARY
+        echo "- **API Info**: [$APPLICATION_URL/api/info]($APPLICATION_URL/api/info)" >> $GITHUB_STEP_SUMMARY
+        echo "">> $GITHUB_STEP_SUMMARY
+        echo "## 🔗 AWS Console Links" >> $GITHUB_STEP_SUMMARY
+        echo "- **ECS Service**: [View in Console](https://console.aws.amazon.com/ecs/home?region=$AWS_REGION#/clusters/$ECS_CLUSTER/services/$ECS_SERVICE)" >> $GITHUB_STEP_SUMMARY
+        echo "- **CloudWatch Logs**: [View Logs](https://console.aws.amazon.com/cloudwatch/home?region=$AWS_REGION#logsV2:log-groups/log-group/%2Fecs%2F$ECS_TASK_DEFINITION)" >> $GITHUB_STEP_SUMMARY
+        echo "- **ECR Repository**: [View Images](https://console.aws.amazon.com/ecr/repositories/private/$AWS_REGION/$ECR_REPOSITORY?region=$AWS_REGION)" >> $GITHUB_STEP_SUMMARY
   cleanup:
     name: 🧹 Cleanup (on failure)
     runs-on: ubuntu-latest
     if: >-
       always() && 
-      (needs.test.result == 'failure' || needs.security-scan.result == 'failure' || needs.deploy.result == 'failure')
+      (needs.test.result == 'failure' || needs.security-scan.result == 'failure' || needs.deploy.result == 'failure') &&
+      github.ref == 'refs/heads/main'
     needs: [test, security-scan, deploy]
-
+    
     steps:
-      - name: 🔐 Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: 🗑️ Clean up ECR images
-        run: |
-          echo "Cleaning up images..."
-          aws ecr batch-delete-image \
-            --repository-name $ECR_REPOSITORY \
-            --image-ids imageTag=${{ github.sha }} \
-            --region $AWS_REGION || echo "No images to clean up."
-
+    - name: 🔐 Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: 📋 Log cleanup information
+      run: |
+        echo "🧹 Cleanup triggered due to failed workflow"
+        echo "Test result: ${{ needs.test.result }}"
+        echo "Security scan result: ${{ needs.security-scan.result }}"
+        echo "Deploy result: ${{ needs.deploy.result }}"
+        echo "Workflow status: ${{ job.status }}"
+        
+        echo "Cleaning up local Docker images..."
+        docker system prune -f --filter "until=24h" || echo "Docker cleanup failed"
+    
+    - name: 🗑️ Clean up ECR images if deployment failed after push
+      if: needs.deploy.result == 'failure'
+      run: |
+        echo "Checking for recently pushed images to clean up..."
+        
+        RECENT_IMAGES=$(aws ecr list-images \
+          --repository-name $ECR_REPOSITORY \
+          --region $AWS_REGION \
+          --filter tagStatus=TAGGED \
+          --query 'imageIds[?contains(imageTag, `${{ github.sha }}`)].imageTag' \
+          --output text)
+        
+        if [ -n "$RECENT_IMAGES" ]; then
+          echo "Found images to clean up: $RECENT_IMAGES"
+          for TAG in $RECENT_IMAGES; do
+            echo "Deleting image with tag: $TAG"
+            aws ecr batch-delete-image \
+              --repository-name $ECR_REPOSITORY \
+              --image-ids imageTag=$TAG \
+              --region $AWS_REGION || echo "Failed to delete image: $TAG"
+          done
+        else
+          echo "No recent images found for cleanup"
+        fi
   notifications:
     name: 📧 Send Email Notifications
     runs-on: ubuntu-latest
     needs: [test, security-scan, deploy, cleanup]
     if: always()
-
+    
     steps:
-      - name: 📧 Send email notification
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: |
-            GitHub Actions: ${{ github.workflow }} - ${{ job.status }}
-          to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: GitHub Actions <${{ secrets.SMTP_USERNAME }}>
-          body: |
-            This is an automated message from GitHub Actions.
-          html_body: |
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: linear-gradient(135deg, #6e8efb, #a777e3); color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-                .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; }
-                .status-success { color: #28a745; font-weight: bold; }
-                .status-failure { color: #dc3545; font-weight: bold; }
-                .status-skipped { color: #6c757d; font-weight: bold; }
-                .job-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-                .job-table th, .job-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-                .button { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; }
-                .security-warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="header">
-                  <h1>GitHub Actions Workflow Notification</h1>
-                  <h2>${{ github.workflow }} - <span class="${{ job.status == 'success' && 'status-success' || 'status-failure' }}">${{ job.status }}</span></h2>
-                </div>
-                <div class="content">
-                  <p><strong>Repository:</strong> ${{ github.repository }}</p>
-                  <p><strong>Triggered by:</strong> ${{ github.actor }}</p>
-                  <p><strong>Commit:</strong> <code>${{ github.sha }}</code></p>
-                  
-                  <h3>Job Results:</h3>
-                  <table class="job-table">
-                    <tr>
-                      <th>Job</th>
-                      <th>Status</th>
-                    </tr>
-                    <tr>
-                      <td>🧪 Test Application</td>
-                      <td class="${{ needs.test.result == 'success' && 'status-success' || needs.test.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.test.result || 'skipped' }}</td>
-                    </tr>
-                    <tr>
-                      <td>🔒 Security Scanning</td>
-                      <td class="${{ needs.security-scan.result =='success' && 'status-success' || needs.security-scan.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.security-scan.result || 'skipped' }}</td>
-                    </tr>
-                    <tr>
-                      <td>🚀 Deploy to Production</td>
-                      <td class="${{ needs.deploy.result == 'success' && 'status-success' || needs.deploy.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.deploy.result || 'skipped' }}</td>
-                    </tr>
-                    <tr>
-                      <td>🧹 Cleanup</td>
-                      <td class="${{ needs.cleanup.result == 'success' && 'status-success' || needs.cleanup.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.cleanup.result || 'skipped' }}</td>
-                    </tr>
-                  </table>
-                  
-                  <div style="text-align: center; margin: 20px 0;">
-                    <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" class="button">
-                      View Workflow Details
-                    </a>
-                  </div>
-                  
-                  <hr>
-                  <p style="font-size: 12px; color: #666; text-align: center;">
-                    This is an automated message from GitHub Actions. Please do not reply to this email.
-                  </p>
-                </div>
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: 📧 Send email notification
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.SMTP_USERNAME }}
+        password: ${{ secrets.SMTP_PASSWORD }}
+        subject: |
+          GitHub Actions: ${{ github.workflow }} - ${{ job.status }}
+          (${{ github.repository }})
+        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        from: GitHub Actions <${{ secrets.SMTP_USERNAME }}>
+        body: |
+          GitHub Actions Workflow Result
+          =============================
+          
+          Repository: ${{ github.repository }}
+          Workflow: ${{ github.workflow }}
+          Status: ${{ job.status }}
+          Triggered by: ${{ github.actor }}
+          Run ID: ${{ github.run_id }}
+          Commit: ${{ github.sha }}
+          
+          Jobs Status:
+          - Test: ${{ needs.test.result }}
+          - Security Scan: ${{ needs.security-scan.result }}
+          - Deploy: ${{ needs.deploy.result }}
+          - Cleanup: ${{ needs.cleanup.result }}
+          
+          View details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          
+          ${{ contains(join(needs.*.result, ','), 'failure') && '❌ One or more jobs failed!' || '✅ All jobs completed successfully!' }}
+          
+          ---
+          This is an automated message from GitHub Actions.
+        html_body: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: linear-gradient(135deg, #6e8efb, #a777e3); color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+              .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; }
+              .status-success { color: #28a745; font-weight: bold; }
+              .status-failure { color: #dc3545; font-weight: bold; }
+              .status-skipped { color: #6c757d; font-weight: bold; }
+              .job-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+              .job-table th, .job-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+              .button { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; }
+              .security-warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>GitHub Actions Workflow Notification</h1>
+                <h2>${{ github.workflow }} - <span class="${{ job.status == 'success' && 'status-success' || 'status-failure' }}">${{ job.status }}</span></h2>
               </div>
-            </body>
-            </html>
+              <div class="content">
+                <p><strong>Repository:</strong> ${{ github.repository }}</p>
+                <p><strong>Triggered by:</strong> ${{ github.actor }}</p>
+                <p><strong>Commit:</strong> <code>${{ github.sha }}</code></p>
+                
+                <h3>Job Results:</h3>
+                <table class="job-table">
+                  <tr>
+                    <th>Job</th>
+                    <th>Status</th>
+                  </tr>
+                  <tr>
+                    <td>🧪 Test Application</td>
+                    <td class="${{ needs.test.result == 'success' && 'status-success' || needs.test.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.test.result || 'skipped' }}</td>
+                  </tr>
+                  <tr>
+                    <td>🔒 Security Scanning</td>
+                    <td class="${{ needs.security-scan.result =='success' && 'status-success' || needs.security-scan.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.security-scan.result || 'skipped' }}</td>
+                  </tr>
+                  <tr>
+                    <td>🚀 Deploy to Production</td>
+                    <td class="${{ needs.deploy.result == 'success' && 'status-success' || needs.deploy.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.deploy.result || 'skipped' }}</td>
+                  </tr>
+                  <tr>
+                    <td>🧹 Cleanup</td>
+                    <td class="${{ needs.cleanup.result == 'success' && 'status-success' || needs.cleanup.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.cleanup.result || 'skipped' }}</td>
+                  </tr>
+                </table>
+                
+                ${{ needs.security-scan.result == 'failure' && '<div class="security-warning">
+                  <h3 style="color: #856404; margin-top: 0;">⚠️ Security Scan Failed</h3>
+                  <p>Critical or high vulnerabilities were found in the Docker image. Deployment was blocked.</p>
+                  <p>Check the security scan results in GitHub Security tab or workflow artifacts.</p>
+                </div>' }}
+                
+                ${{ contains(join(needs.*.result, ','), 'failure') && needs.security-scan.result != 'failure' && '<div style="background: #ffe6e6; padding: 15px; border-radius: 5px; border-left: 4px solid #dc3545; margin: 15px 0;">
+                  <h3 style="color: #dc3545; margin-top: 0;">❌ Deployment Failed</h3>
+                  <p>One or more jobs failed during the deployment process. Please check the workflow logs for details.</p>
+                </div>' }}
+                
+                <div style="text-align: center; margin: 20px 0;">
+                  <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" class="button">
+                    View Workflow Details
+                  </a>
+                </div>
+                
+                <hr>
+                <p style="font-size: 12px; color: #666; text-align: center;">
+                  This is an automated message from GitHub Actions. Please do not reply to this email.
+                </p>
+              </div>
+            </div>
+          </body>
+          </html>

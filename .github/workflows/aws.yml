@@ -195,7 +195,7 @@ jobs:
           -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
           .
         echo "✅ Docker image built successfully"
-      working-directory: '${{ env极PROJECT_DIR }}'
+      working-directory: '${{ env.PROJECT_DIR }}'
     
     - name: 🔍 Scan production image with Trivy
       uses: aquasecurity/trivy-action@master
@@ -210,7 +210,7 @@ jobs:
     - name: 📤 Push image to ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github极sha }}
+        IMAGE_TAG: ${{ github.sha }}
       run: |
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE极TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest

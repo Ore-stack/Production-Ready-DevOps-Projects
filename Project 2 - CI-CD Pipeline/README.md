@@ -35,9 +35,9 @@ Before you begin, ensure the following tools are installed:
 
 ---
 
+```
 ## 📁 Project Structure
 
-```
 .
 ├── app.js
 ├── package.json
@@ -59,11 +59,13 @@ Before you begin, ensure the following tools are installed:
 
 ### 1. Test Locally
 
-```bash
 // Install dependencies 
+```bash
 npm install
+```
 
 // Test the application
+```bash
 npm start
 ```
 
@@ -147,9 +149,9 @@ git push -u origin main
 
 Look for:
 
-        ```
-        🚀 Your app is live at: http://[IP]:3001
-        ```
+```
+🚀 Your app is live at: http://[IP]:3001
+```
         
 ---
 

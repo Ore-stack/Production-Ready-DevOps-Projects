@@ -55,12 +55,12 @@ Before you begin, ensure the following tools are installed:
 
 ### 1. Test Locally
 
-// Install dependencies 
+Install dependencies 
 ```bash
 npm install
 ```
 
-// Test the application
+Test the application
 ```bash
 npm start
 ```

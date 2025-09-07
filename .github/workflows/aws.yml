@@ -3,13 +3,11 @@ name: Deploy to AWS ECS
 on:
   push:
     branches: [main]
-    # paths:
-      # - 'Project 2 - CI-CD Pipeline/**'  #Only run when Project 2 directory changes
   pull_request:
     branches: [main]
     paths:
-      - 'Project 2 - CI-CD Pipeline/**' # Consistent path pattern
-  workflow_dispatch: # Allow manual triggering
+      - 'Project 2 - CI-CD Pipeline/**'
+  workflow_dispatch:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -17,21 +15,22 @@ env:
   ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
   ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
   ECS_TASK_DEFINITION: ${{ secrets.ECS_TASK_DEFINITION }}
-  CONTAINER_NAME: 'webapp' # Fixed container name
-  CONTAINER_PORT: '3001' # Fixed container port
-  PROJECT_DIR: 'Project 2 - CI-CD Pipeline' # Define project directory once
+  CONTAINER_NAME: 'webapp'
+  CONTAINER_PORT: '3001'
+  PROJECT_DIR: 'Project 2 - CI-CD Pipeline'
   TRIVY_SEVERITY: 'CRITICAL,HIGH'
   TRIVY_EXIT_CODE: '1'
 
 permissions:
   actions: read
-  security-events: write   # Required for SARIF uploads
+  contents: read
+  security-events: write
 
 jobs:
   test:
     name: 🧪 Test Application
     runs-on: ubuntu-latest
-    timeout-minutes: 10 # Prevent hanging tests, increase if tests are slow
+    timeout-minutes: 10
     
     defaults:
       run:
@@ -41,7 +40,7 @@ jobs:
     - name: 📥 Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0 # Fetch all history for proper versioning
+        fetch-depth: 0
     
     - name: ⚙️ Setup Node.js
       uses: actions/setup-node@v4
@@ -51,16 +50,12 @@ jobs:
         cache-dependency-path: '${{ env.PROJECT_DIR }}/package-lock.json'
     
     - name: 📦 Install dependencies
-      run: npm ci --audit false # Skip audit for faster builds
+      run: npm ci --audit false
       working-directory: '${{ env.PROJECT_DIR }}'
     
     - name: 🔍 Run linting
       run: npm run lint --if-present || echo "Linting not configured"
       working-directory: '${{ env.PROJECT_DIR }}'
-    
-    - name: Run ESLint
-      run: npx eslint . --fix 
-      working-directory: '${{ env.PROJECT_DIR }}' 
     
     - name: ✅ Run tests
       run: npm test -- --passWithNoTests
@@ -88,21 +83,6 @@ jobs:
       run: |
         docker build -t local-webapp:latest .
       working-directory: '${{ env.PROJECT_DIR }}'
-
-    - name: Install Trivy
-      uses: aquasecurity/setup-trivy@v1
-      with:
-        version: 0.66.0
-
-    - name: Run Trivy Scan
-      run: |
-        mkdir -p trivy-reports
-        trivy image --format sarif --output trivy-reports/trivy-results.sarif local-webapp:latest || true
-
-    - name: Upload Trivy SARIF report
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: trivy-reports/trivy-results.sarif
     
     - name: 🔍 Scan Docker image with Trivy
       uses: aquasecurity/trivy-action@master
@@ -126,34 +106,46 @@ jobs:
       run: |
         echo "📊 Vulnerability Scan Summary"
         echo "============================"
-        docker run --rm \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasec/trivy:latest \
-          image --severity $TRIVY_SEVERITY --ignore-unfixed local-webapp:latest \
+        trivy image --severity $TRIVY_SEVERITY --ignore-unfixed local-webapp:latest \
           | grep -E "(CRITICAL|HIGH|MEDIUM|LOW)" || echo "No vulnerabilities found in specified severity levels"
     
     - name: ⚠️ Upload results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v2
-      if: always() # Upload even if tests fail
+      if: always()
       with:
         sarif_file: trivy-results.sarif
-  
+
   codeql-analysis:
+    name: 🔍 CodeQL Analysis
     runs-on: ubuntu-latest
-    needs: build-and-lint
-
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+    
+    - name: 🔍 Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: javascript
+    
+    - name: ⚙️ Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: 📦 Install dependencies
+      run: npm ci --audit false
+      working-directory: '${{ env.PROJECT_DIR }}'
+    
+    - name: 🔎 Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        category: '/language:javascript'
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-              
   deploy:
     name: 🚀 Deploy to Production
     runs-on: ubuntu-latest
@@ -164,7 +156,7 @@ jobs:
       needs.security-scan.result == 'success' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     environment: production
-    timeout-minutes: 20 # Deployment can take time, increase for large deployments
+    timeout-minutes: 20
     
     steps:
     - name: 📥 Checkout code
@@ -333,7 +325,6 @@ jobs:
         echo "- **CloudWatch Logs**: [View Logs](https://console.aws.amazon.com/cloudwatch/home?region=$AWS_REGION#logsV2:log-groups/log-group/%2Fecs%2F$ECS_TASK_DEFINITION)" >> $GITHUB_STEP_SUMMARY
         echo "- **ECR Repository**: [View Images](https://console.aws.amazon.com/ecr/repositories/private/$AWS_REGION/$ECR_REPOSITORY?region=$AWS_REGION)" >> $GITHUB_STEP_SUMMARY
 
-  # Optional: Add a cleanup job for failed deployments
   cleanup:
     name: 🧹 Cleanup (on failure)
     runs-on: ubuntu-latest
@@ -359,7 +350,6 @@ jobs:
         echo "Deploy result: ${{ needs.deploy.result }}"
         echo "Workflow status: ${{ job.status }}"
         
-        # Clean up any locally built images to save space
         echo "Cleaning up local Docker images..."
         docker system prune -f --filter "until=24h" || echo "Docker cleanup failed"
     
@@ -368,7 +358,6 @@ jobs:
       run: |
         echo "Checking for recently pushed images to clean up..."
         
-        # List recent images and delete them if deployment failed
         RECENT_IMAGES=$(aws ecr list-images \
           --repository-name $ECR_REPOSITORY \
           --region $AWS_REGION \

@@ -1,0 +1,6 @@
+# Ignore specific CVEs (if they're false positives or not applicable)
+CVE-2023-12345
+CVE-2023-67890
+
+# Ignore vulnerabilities in specific packages
+nodejs-library:package-name

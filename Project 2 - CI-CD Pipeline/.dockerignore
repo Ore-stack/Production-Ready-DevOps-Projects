@@ -1,0 +1,41 @@
+# ============================================
+# 📦 Dependency directories
+# ============================================
+
+node_modules         # Local dependencies — should be installed inside the container
+
+# ============================================
+# 🐞 Debug and log files
+# ============================================
+
+npm-debug.log        # npm error logs
+*.log                # Any other log files (e.g., app.log, error.log)
+
+# ============================================
+# 🔐 Git and version control
+# ============================================
+
+.git                 # Git metadata — not needed in Docker image
+.gitignore           # Git ignore rules — irrelevant to Docker
+
+# ============================================
+# 📄 Documentation and config files
+# ============================================
+
+README.md            # Project documentation — not needed in runtime image
+.dockerignore        # This file itself — not needed inside the image
+.eslintrc.js         # ESLint config — used only during development
+
+# ============================================
+# 🧪 Test and coverage artifacts
+# ============================================
+
+test/                # Unit/integration tests — not needed in production image
+coverage/            # Code coverage reports — not needed in runtime
+
+# ============================================
+# 🛠️ Build and output directories
+# ============================================
+
+dist/                # Distribution folder (e.g., compiled code)
+build/               # Build output (e.g., from Webpack, Babel, etc.)

@@ -3,8 +3,8 @@ name: Deploy to AWS ECS
 on:
   push:
     branches: [main]
-    paths:
-      - 'Project 2 - CI-CD Pipeline/**'  #Only run when Project 2 directory changes
+    # paths:
+      # - 'Project 2 - CI-CD Pipeline/**'  #Only run when Project 2 directory changes
   pull_request:
     branches: [main]
     paths:

@@ -41,6 +41,7 @@ build/               # Build output (e.g., from Webpack, Babel, etc.)
 .idea/               # JetBrains IDE settings
 .vscode/             # VS Code workspace settings
 node_modules
+node_modules/
 
 # ============================================
 # 🧼 Terraform

@@ -35,7 +35,7 @@ Before you begin, ensure the following tools are installed:
 
 ---
 
-```
+
 ## 📁 Project Structure
 
 .

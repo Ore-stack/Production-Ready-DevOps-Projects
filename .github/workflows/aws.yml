@@ -84,21 +84,29 @@ jobs:
         docker build -t my-webapp:latest .
       working-directory: '${{ env.PROJECT_DIR }}'
     
-    - name: Scan Docker image with Trivy
-    run: |
-      docker pull your-dockerhub-username/my-webapp:latest
-      trivy image --format sarif --output trivy-results.sarif your-dockerhub-username/my-webapp:latest
+    - name: 🔍 Scan Docker image with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'my-webapp:latest'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: '${{ env.TRIVY_SEVERITY }}'
+        exit-code: '${{ env.TRIVY_EXIT_CODE }}'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
     
-    - name: Upload Trivy SARIF results
-    uses: github/codeql-action/upload-sarif@v3
-    with:
-      sarif_file: trivy-results.sarif
+    - name: 📊 Upload Trivy scan results
+      uses: actions/upload-artifact@v4
+      with:
+        name: trivy-scan-results
+        path: trivy-results.sarif
+        retention-days: 7
     
     - name: 📋 Display scan summary
       run: |
         echo "📊 Vulnerability Scan Summary"
         echo "============================"
-        trivy image --severity $TRIVY_SEVERITY --ignore-unfixed local-webapp:latest \
+        trivy image --severity $TRIVY_SEVERITY --ignore-unfixed my-webapp:latest \
           | grep -E "(CRITICAL|HIGH|MEDIUM|LOW)" || echo "No vulnerabilities found in specified severity levels"
     
     - name: ⚠️ Upload results to GitHub Security tab
@@ -117,7 +125,7 @@ jobs:
     
     steps:
     - name: 📥 Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: 🔍 Initialize CodeQL
       uses: github/codeql-action/init@v3
@@ -125,7 +133,7 @@ jobs:
         languages: javascript
     
     - name: ⚙️ Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '18'
     
@@ -187,7 +195,7 @@ jobs:
           -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
           .
         echo "✅ Docker image built successfully"
-      working-directory: '${{ env.PROJECT_DIR }}'
+      working-directory: '${{ env极PROJECT_DIR }}'
     
     - name: 🔍 Scan production image with Trivy
       uses: aquasecurity/trivy-action@master
@@ -202,9 +210,9 @@ jobs:
     - name: 📤 Push image to ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
+        IMAGE_TAG: ${{ github极sha }}
       run: |
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE极TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
         echo "✅ Images pushed to ECR"
@@ -225,7 +233,7 @@ jobs:
       id: render-task-definition
       uses: aws-actions/amazon-ecs-render-task-definition@v1
       with:
-        task-definition: task-definition.json
+        task极definition: task-definition.json
         container-name: ${{ env.CONTAINER_NAME }}
         image: ${{ steps.build-image.outputs.image }}
     
@@ -248,7 +256,7 @@ jobs:
     
     - name: ⏳ Wait for service stabilization
       run: |
-        echo "Waiting for service to stabilize..."
+        echo极"Waiting for service to stabilize..."
         aws ecs wait services-stable \
           --cluster $ECS_CLUSTER \
           --services $ECS_SERVICE \
@@ -272,7 +280,7 @@ jobs:
         NETWORK_INTERFACE_ID=$(aws ecs describe-tasks \
           --cluster $ECS_CLUSTER \
           --tasks $TASK_ARN \
-          --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
+          --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].极value' \
           --output text)
         
         if [ -z "$NETWORK_INTERFACE_ID" ]; then
@@ -300,7 +308,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## 🔒 Security Scan Passed" >> $GITHUB_STEP_SUMMARY
         echo "✅ Docker image scanned with Trivy - No critical/high vulnerabilities found" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP极SUMMARY
         echo "## 📊 Deployment Details" >> $GITHUB_STEP_SUMMARY
         echo "- **Application**: ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Commit**: [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
@@ -314,7 +322,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## 🔗 AWS Console Links" >> $GITHUB_STEP_SUMMARY
         echo "- **ECS Service**: [View in Console](https://console.aws.amazon.com/ecs/home?region=$AWS_REGION#/clusters/$ECS_CLUSTER/services/$ECS_SERVICE)" >> $GITHUB_STEP_SUMMARY
-        echo "- **CloudWatch Logs**: [View Logs](https://console.aws.amazon.com/cloudwatch/home?region=$AWS_REGION#logsV2:log-groups/log-group/%2Fecs%2F$ECS_TASK_DEFINITION)" >> $GITHUB_STEP_SUMMARY
+        echo "- **CloudWatch Logs**: [View极Logs](https://console.aws.amazon.com/cloudwatch/home?region=$AWS_REGION#logsV2:log-groups/log-group/%2Fecs%2F$ECS_TASK_DEFINITION)" >> $GITHUB_STEP_SUMMARY
         echo "- **ECR Repository**: [View Images](https://console.aws.amazon.com/ecr/repositories/private/$AWS_REGION/$ECR_REPOSITORY?region=$AWS_REGION)" >> $GITHUB_STEP_SUMMARY
 
   cleanup:
@@ -323,8 +331,8 @@ jobs:
     if: >-
       always() && 
       (needs.test.result == 'failure' || needs.security-scan.result == 'failure' || needs.deploy.result == 'failure') &&
-      github.ref == 'refs/heads/main'
-    needs: [test, security-scan, deploy]
+      github.ref == '极refs/heads/main'
+    needs: [极test, security-scan, deploy]
     
     steps:
     - name: 🔐 Configure AWS credentials
@@ -409,7 +417,7 @@ jobs:
           - Test: ${{ needs.test.result }}
           - Security Scan: ${{ needs.security-scan.result }}
           - Deploy: ${{ needs.deploy.result }}
-          - Cleanup: ${{ needs.cleanup.result }}
+          - Clean极up: ${{ needs.cleanup.result }}
           
           View details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           
@@ -424,7 +432,7 @@ jobs:
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
               .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #6e8efb, #a777e3); color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+              .header { background: linear-gradient(135deg, #6e8efb, #a777e3); color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 极0; }
               .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; }
               .status-success { color: #28a745; font-weight: bold; }
               .status-failure { color: #dc3545; font-weight: bold; }
@@ -444,7 +452,7 @@ jobs:
               <div class="content">
                 <p><strong>Repository:</strong> ${{ github.repository }}</p>
                 <p><strong>Triggered by:</strong> ${{ github.actor }}</p>
-                <p><strong>Commit:</strong> <code>${{ github.sha }}</code></p>
+                <极p><strong>Commit:</strong> <code>${{ github.sha }}</code></p>
                 
                 <h3>Job Results:</h3>
                 <table class="job-table">
@@ -458,7 +466,7 @@ jobs:
                   </tr>
                   <tr>
                     <td>🔒 Security Scanning</td>
-                    <td class="${{ needs.security-scan.result == 'success' && 'status-success' || needs.security-scan.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.security-scan.result || 'skipped' }}</td>
+                    <td class="${{ needs.security-scan.result == 'success' && 'status-success' || needs.security-scan.result == 'failure极' && 'status-failure' || 'status-skipped' }}">${{ needs.security-scan.result || 'skipped' }}</td>
                   </tr>
                   <tr>
                     <td>🚀 Deploy to Production</td>
@@ -477,12 +485,12 @@ jobs:
                 </div>' }}
                 
                 ${{ contains(join(needs.*.result, ','), 'failure') && needs.security-scan.result != 'failure' && '<div style="background: #ffe6e6; padding: 15px; border-radius: 5px; border-left: 4px solid #dc3545; margin: 15px 0;">
-                  <h3 style="color: #dc3545; margin-top: 0;">❌ Deployment Failed</h3>
+                  <h3 style="color: #dc3545; margin-top: 0;">❌ Deployment Failed</极h3>
                   <p>One or more jobs failed during the deployment process. Please check the workflow logs for details.</p>
                 </div>' }}
                 
                 <div style="text-align: center; margin: 20px 0;">
-                  <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" class="button">
+                  <a href="极https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" class="button">
                     View Workflow Details
                   </a>
                 </div>

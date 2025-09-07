@@ -1,1 +1,26 @@
-name: Trivy Scan\n\non: [push, pull_request]\n\njobs:\n  trivy:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout code\n        uses: actions/checkout@v2\n      - name: Set up Docker Buildx\n        uses: docker/setup-buildx-action@v1\n      - name: Cache Trivy results\n        uses: actions/cache@v2\n        with:\n          path: /tmp/.trivycache\n          key: ${{ runner.os }}-trivy-${{ github.sha }}\n          restore-keys: |\n            ${{ runner.os }}-trivy-\n      - name: Run Trivy\n        uses: aquasecurity/trivy-action@latest\n        with:\n          image-ref: ${{ github.repository }}:${{ github.sha }}\n          format: 'table'\n          exit-code: '1'\n          severity: 'HIGH,CRITICAL'\n          ignore-unfixed: true\n          timeout: '5m'\n      - name: Upload Trivy results\n        uses: actions/upload-artifact@v2\n        with:\n          name: trivy-results\n          path: /tmp/trivy-results.json\n
+# AWS Workflow
+
+name: AWS Workflow
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy to AWS
+        run: |
+          aws s3 cp ./my-app s3://my-bucket --recursive

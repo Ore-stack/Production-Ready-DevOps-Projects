@@ -110,7 +110,7 @@ jobs:
           | grep -E "(CRITICAL|HIGH|MEDIUM|LOW)" || echo "No vulnerabilities found in specified severity levels"
     
     - name: ⚠️ Upload results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: trivy-results.sarif

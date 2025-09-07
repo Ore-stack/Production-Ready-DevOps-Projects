@@ -84,23 +84,15 @@ jobs:
         docker build -t my-webapp:latest .
       working-directory: '${{ env.PROJECT_DIR }}'
     
-    - name: 🔍 Scan Docker image with Trivy
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: 'local-webapp:latest'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        severity: '${{ env.TRIVY_SEVERITY }}'
-        exit-code: '${{ env.TRIVY_EXIT_CODE }}'
-        ignore-unfixed: true
-        vuln-type: 'os,library'
+    - name: Scan Docker image with Trivy
+    run: |
+      docker pull your-dockerhub-username/my-webapp:latest
+      trivy image --format sarif --output trivy-results.sarif your-dockerhub-username/my-webapp:latest
     
-    - name: 📊 Upload Trivy scan results
-      uses: actions/upload-artifact@v4
-      with:
-        name: trivy-scan-results
-        path: trivy-results.sarif
-        retention-days: 7
+    - name: Upload Trivy SARIF results
+    uses: github/codeql-action/upload-sarif@v3
+    with:
+      sarif_file: trivy-results.sarif
     
     - name: 📋 Display scan summary
       run: |

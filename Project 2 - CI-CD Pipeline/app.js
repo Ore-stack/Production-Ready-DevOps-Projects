@@ -2,7 +2,7 @@ const express = require('express');
 const os = require('os');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+// const PORT = process.env.PORT || 3001;
 const ENVIRONMENT = process.env.ENVIRONMENT || 'development';
 
 // Middleware
@@ -63,11 +63,11 @@ app.get('/', (req, res) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
     timestamp: new Date().toISOString(),
     environment: ENVIRONMENT,
-    uptime: process.uptime()
+    uptime: process.uptime(),
   });
 });
 
@@ -78,7 +78,7 @@ app.get('/api/info', (req, res) => {
     version: '1.0.0',
     environment: ENVIRONMENT,
     timestamp: new Date().toISOString(),
-    nodeVersion: process.version
+    nodeVersion: process.version,
   });
 });
 
@@ -92,7 +92,7 @@ app.get('/api/system', (req, res) => {
     freeMemory: os.freemem(),
     cpus: os.cpus().length,
     uptime: os.uptime(),
-    loadavg: os.loadavg()
+    loadavg: os.loadavg(),
   });
 });
 
@@ -101,16 +101,16 @@ app.use((req, res) => {
   res.status(404).json({
     error: 'Endpoint not found',
     path: req.path,
-    availableEndpoints: ['/', '/health', '/api/info', '/api/system']
+    availableEndpoints: ['/', '/health', '/api/info', '/api/system'],
   });
 });
 
 // Error handler
-app.use((error, req, res, next) => {
+app.use((error, req, res, next) => { // eslint-disable-line no-unused-vars
   console.error('Unhandled error:', error);
   res.status(500).json({
     error: 'Internal server error',
-    message: ENVIRONMENT === 'production' ? 'Something went wrong' : error.message
+    message: ENVIRONMENT === 'production' ? 'Something went wrong' : error.message,
   });
 });
 

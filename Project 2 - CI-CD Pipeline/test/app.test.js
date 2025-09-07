@@ -1,5 +1,5 @@
 const request = require('supertest');
-const app = require('../app'); // Import your Express app
+const app = require('../app.js'); // Import your Express app
 
 describe('Express App Endpoints', () => {
   /**
@@ -37,7 +37,7 @@ describe('Express App Endpoints', () => {
       expect(response.body).toEqual(
         expect.objectContaining({
           status: 'healthy',
-        })
+        }),
       );
     });
   });

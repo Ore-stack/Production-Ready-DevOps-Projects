@@ -1,5 +1,5 @@
 const os = require('os');
-const app = require('./app');
+const app = require('./app.js');
 
 const PORT = process.env.PORT || 3001;
 const ENVIRONMENT = process.env.ENVIRONMENT || 'development';
@@ -31,6 +31,6 @@ process.on('SIGINT', () => {
 
 // Catches any hidden
 
-process.on('uncaughtException', err => {
+process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
 });

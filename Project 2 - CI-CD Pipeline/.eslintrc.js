@@ -1,12 +1,14 @@
-// .eslintrc.js — ESLint configuration file for Node.js project to  define rules, environments, and parser settings that ESLint uses to analyze your code for errors, enforce coding standards, and improve consistency across your project
+// .eslintrc.js — ESLint configuration file for Node.js project
+// Defines rules, environments, and parser settings for ESLint
+// Helps analyze code for errors, enforce standards, and improve consistency
 
 module.exports = {
   // Define environments to enable global variables
   env: {
-    node: true,        // Enables Node.js globals (e.g., process, __dirname)
-    commonjs: true,    // Enables CommonJS globals (e.g., require, module.exports)
-    es2021: true,      // Enables ES2021 syntax
-    jest: true,        // Enables Jest testing globals (e.g., describe, test)
+    node: true, // Enables Node.js globals (e.g., process, __dirname)
+    commonjs: true, // Enables CommonJS globals (e.g., require, module.exports)
+    es2021: true, // Enables ES2021 syntax
+    jest: true, // Enables Jest testing globals (e.g., describe, test)
   },
 
   // Extend Airbnb's base style guide (no React rules)
@@ -34,5 +36,6 @@ module.exports = {
   rules: {
     'no-console': 'off', // Allow console.log (useful for debugging)
     'import/extensions': ['error', 'ignorePackages'], // Enforce file extensions for imports
+    'max-len': ['error', { code: 200 }], // Increase max line length to 150
   },
 };

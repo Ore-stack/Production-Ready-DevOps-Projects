@@ -51,7 +51,7 @@ jobs:
     
     - name: 📦 Install dependencies
       run: npm ci --audit false
-      working-directory: '${{ env极PROJECT_DIR }}'
+      working-directory: '${{ env.PROJECT_DIR }}'
     
     - name: 🔍 Run linting
       run: npm run lint --if-present || echo "Linting not configured"
@@ -77,7 +77,7 @@ jobs:
     
     steps:
     - name: 📥 Checkout code
-      uses: actions/check极out@v4
+      uses: actions/checkout@v4
     
     - name: 🐳 Build Docker image
       run: |
@@ -128,7 +128,7 @@ jobs:
     name: 🔍 CodeQL Analysis
     runs-on: ubuntu-latest
     permissions:
-      security极events: write
+      security-events: write
       actions: read
       contents: read
     
@@ -174,7 +174,7 @@ jobs:
         fetch-depth: 0
     
     - name: 🔐 Configure AWS credentials
-      uses: aws-actions极configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -188,7 +188,7 @@ jobs:
     
     - name: 🔐 Login to Amazon ECR
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login极v2
+      uses: aws-actions/amazon-ecr-login@v2
     
     - name: 🐳 Build Docker image
       id: build-image
@@ -222,7 +222,7 @@ jobs:
         IMAGE_TAG: ${{ github.sha }}
       run: |
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $极CR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
         echo "✅ Images pushed to ECR"
     
@@ -254,8 +254,8 @@ jobs:
           --region ${{ env.AWS_REGION }}
         echo "✅ New task definition registered"
     
-    - name: 🚀极Deploy to ECS service
-      uses: aws-actions/amazon-ecs极deploy-task-definition@v1
+    - name: 🚀Deploy to ECS service
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
       with:
         task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
         service: ${{ env.ECS_SERVICE }}
@@ -302,13 +302,13 @@ jobs:
           --query 'NetworkInterfaces[0].Association.PublicIp' \
           --output text)
         
-        if [ -z "$PUBLIC_IP" ] || [ "$PUBLIC_IP极" = "None" ]; then
+        if [ -z "$PUBLIC_IP" ] || [ "$PUBLIC_IP" = "None" ]; then
           echo "❌ Could not get public IP"
           exit 1
         fi
         
         echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
-        echo "APPLICATION_URL=http://$PUBLIC_IP:$CONTAINER_PORT" >> $GITHUB_EN极V
+        echo "APPLICATION_URL=http://$PUBLIC_IP:$CONTAINER_PORT" >> $GITHUB_ENV
         echo "✅ Application URL determined"
     
     - name: 📋 Create deployment summary
@@ -328,10 +328,10 @@ jobs:
         echo "- **Main Application**: [$APPLICATION_URL]($APPLICATION_URL)" >> $GITHUB_STEP_SUMMARY
         echo "- **Health Check**: [$APPLICATION_URL/health]($APPLICATION_URL/health)" >> $GITHUB_STEP_SUMMARY
         echo "- **API Info**: [$APPLICATION_URL/api/info]($APPLICATION_URL/api/info)" >> $GITHUB_STEP_SUMMARY
-        echo ""极>> $GITHUB_STEP_SUMMARY
+        echo "">> $GITHUB_STEP_SUMMARY
         echo "## 🔗 AWS Console Links" >> $GITHUB_STEP_SUMMARY
         echo "- **ECS Service**: [View in Console](https://console.aws.amazon.com/ecs/home?region=$AWS_REGION#/clusters/$ECS_CLUSTER/services/$ECS_SERVICE)" >> $GITHUB_STEP_SUMMARY
-        echo "- **CloudWatch Logs**: [View Logs](https://console.aws.amazon.com/cloudwatch/home?region=$AWS_REGION#logs极V2:log-groups/log-group/%2Fecs%2F$ECS_TASK_DEFINITION)" >> $GITHUB_STEP_SUMMARY
+        echo "- **CloudWatch Logs**: [View Logs](https://console.aws.amazon.com/cloudwatch/home?region=$AWS_REGION#logsV2:log-groups/log-group/%2Fecs%2F$ECS_TASK_DEFINITION)" >> $GITHUB_STEP_SUMMARY
         echo "- **ECR Repository**: [View Images](https://console.aws.amazon.com/ecr/repositories/private/$AWS_REGION/$ECR_REPOSITORY?region=$AWS_REGION)" >> $GITHUB_STEP_SUMMARY
 
   cleanup:
@@ -440,12 +440,12 @@ jobs:
           <head>
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding极: 20px; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
               .header { background: linear-gradient(135deg, #6e8efb, #a777e3); color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
               .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; }
               .status-success { color: #28a745; font-weight: bold; }
               .status-failure { color: #dc3545; font-weight: bold; }
-              .status-skipped { color: #6c757极d; font-weight: bold; }
+              .status-skipped { color: #6c757d; font-weight: bold; }
               .job-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
               .job-table th, .job-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
               .button { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; }
@@ -475,14 +475,14 @@ jobs:
                   </tr>
                   <tr>
                     <td>🔒 Security Scanning</td>
-                    <td class="${{ needs.security-scan.result ==极'success' && 'status-success' || needs.security-scan.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.security-scan.result || 'skipped' }}</td>
+                    <td class="${{ needs.security-scan.result =='success' && 'status-success' || needs.security-scan.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.security-scan.result || 'skipped' }}</td>
                   </tr>
                   <tr>
                     <td>🚀 Deploy to Production</td>
                     <td class="${{ needs.deploy.result == 'success' && 'status-success' || needs.deploy.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.deploy.result || 'skipped' }}</td>
                   </tr>
                   <tr>
-                    <极td>🧹 Cleanup</td>
+                    <td>🧹 Cleanup</td>
                     <td class="${{ needs.cleanup.result == 'success' && 'status-success' || needs.cleanup.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.cleanup.result || 'skipped' }}</td>
                   </tr>
                 </table>

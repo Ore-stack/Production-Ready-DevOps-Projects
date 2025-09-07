@@ -81,7 +81,7 @@ jobs:
     
     - name: 🐳 Build Docker image
       run: |
-        docker build -t local-webapp:latest .
+        docker build -t my-webapp:latest .
       working-directory: '${{ env.PROJECT_DIR }}'
     
     - name: 🔍 Scan Docker image with Trivy
@@ -125,15 +125,15 @@ jobs:
     
     steps:
     - name: 📥 Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
     
     - name: 🔍 Initialize CodeQL
-      uses: github/codeql-action/init@v2
+      uses: github/codeql-action/init@v3
       with:
         languages: javascript
     
     - name: ⚙️ Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v3
       with:
         node-version: '18'
     

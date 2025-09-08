@@ -602,4 +602,4 @@ aws logs delete-log-group --log-group-name /ecs/webapp-cicd-task
 * Collect test coverage reports with Jest + Istanbul and upload to GitHub Actions.
 * Move to **Project 3: Kubernetes Orchestration**
 
-🎉 **Congratulations! You built a full AWS DevOps pipeline!**//
+🎉 **Congratulations! You built a full AWS DevOps pipeline!**

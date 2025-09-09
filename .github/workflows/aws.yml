@@ -33,6 +33,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_database
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
     defaults:
       run:
         working-directory: '${{ env.PROJECT_DIR }}'
@@ -50,9 +65,40 @@ jobs:
         cache: 'npm'
         cache-dependency-path: '${{ env.PROJECT_DIR }}/package-lock.json'
     
+    - name: 🐘 Install PostgreSQL client
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+        echo "✅ PostgreSQL client installed"
+    
     - name: 📦 Install dependencies
       run: npm ci --audit false
       working-directory: '${{ env.PROJECT_DIR }}'
+    
+    - name: 🗃️ Wait for database
+      run: |
+        until pg_isready -h localhost -p 5432 -U test_user; do
+          echo "Waiting for postgres..."
+          sleep 2
+        done
+        echo "✅ Database is ready!"
+      env:
+        PGPASSWORD: test_password
+    
+    - name: 🛠️ Initialize database
+      run: |
+        # Connect to database and create basic schema for testing
+        PGPASSWORD=test_password psql -h localhost -p 5432 -U test_user -d test_database -c "
+          CREATE TABLE IF NOT EXISTS app_status (
+            id SERIAL PRIMARY KEY,
+            status VARCHAR(50) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+          INSERT INTO app_status (status) VALUES ('initialized');
+        "
+        echo "✅ Database initialized with test schema!"
+      env:
+        PGPASSWORD: test_password
     
     - name: 🔍 Run linting
       run: npm run lint --if-present || echo "Linting not configured"
@@ -63,6 +109,7 @@ jobs:
       working-directory: '${{ env.PROJECT_DIR }}'
       env:
         NODE_ENV: test
+        DATABASE_URL: postgres://test_user:test_password@localhost:5432/test_database
     
     - name: 🐳 Test Docker build
       run: |

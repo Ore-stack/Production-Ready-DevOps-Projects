@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1757133234239" clover="3.2.0">
-  <project timestamp="1757133234239" name="All files">
-    <metrics statements="27" coveredstatements="20" conditionals="6" coveredconditionals="4" methods="7" coveredmethods="3" elements="40" coveredelements="27" complexity="0" loc="27" ncloc="27" packages="1" files="1" classes="1"/>
-    <file name="app.js" path="/Users/macbook/DevOps Project/AWS/Project 2 - CI-CD Pipeline/app.js">
-      <metrics statements="27" coveredstatements="20" conditionals="6" coveredconditionals="4" methods="7" coveredmethods="3"/>
+<coverage generated="1757460202991" clover="3.2.0">
+  <project timestamp="1757460202991" name="All files">
+    <metrics statements="26" coveredstatements="19" conditionals="4" coveredconditionals="2" methods="7" coveredmethods="3" elements="37" coveredelements="24" complexity="0" loc="26" ncloc="26" packages="1" files="1" classes="1"/>
+    <file name="app.js" path="/home/runner/work/Production-Ready-DevOps-Projects/Production-Ready-DevOps-Projects/Project 2 - CI-CD Pipeline/app.js">
+      <metrics statements="26" coveredstatements="19" conditionals="4" coveredconditionals="2" methods="7" coveredmethods="3"/>
       <line num="1" count="1" type="stmt"/>
       <line num="2" count="1" type="stmt"/>
       <line num="4" count="1" type="stmt"/>
-      <line num="5" count="1" type="cond" truecount="2" falsecount="0"/>
       <line num="6" count="1" type="cond" truecount="2" falsecount="0"/>
       <line num="9" count="1" type="stmt"/>
       <line num="10" count="1" type="stmt"/>

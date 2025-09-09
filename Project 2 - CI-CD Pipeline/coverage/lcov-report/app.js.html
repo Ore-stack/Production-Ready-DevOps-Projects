@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">74.07% </span>
+                <span class="strong">73.07% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>20/27</span>
+                <span class='fraction'>19/26</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">66.66% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>4/6</span>
+                <span class='fraction'>2/4</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">74.07% </span>
+                <span class="strong">73.07% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>20/27</span>
+                <span class='fraction'>19/26</span>
             </div>
         
             
@@ -179,11 +179,12 @@
 <a name='L114'></a><a href='#L114'>114</a>
 <a name='L115'></a><a href='#L115'>115</a>
 <a name='L116'></a><a href='#L116'>116</a>
-<a name='L117'></a><a href='#L117'>117</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -295,11 +296,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span></td><td class="text"><pre class="prettyprint lang-js">const express = require('express');
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const express = require('express');
 const os = require('os');
 &nbsp;
 const app = express();
-const PORT = process.env.PORT || 3001;
+// const PORT = process.env.PORT || 3001;
 const ENVIRONMENT = process.env.ENVIRONMENT || 'development';
 &nbsp;
 // Middleware
@@ -360,11 +362,11 @@ app.get('/', (req, res) =&gt; {
 &nbsp;
 // Health check endpoint
 app.get('/health', (req, res) =&gt; {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
     timestamp: new Date().toISOString(),
     environment: ENVIRONMENT,
-    uptime: process.uptime()
+    uptime: process.uptime(),
   });
 });
 &nbsp;
@@ -375,7 +377,7 @@ app.get('/api/info', <span class="fstat-no" title="function not covered" >(r</sp
     version: '1.0.0',
     environment: ENVIRONMENT,
     timestamp: new Date().toISOString(),
-    nodeVersion: process.version
+    nodeVersion: process.version,
   });
 });
 &nbsp;
@@ -389,7 +391,7 @@ app.get('/api/system', <span class="fstat-no" title="function not covered" >(r</
     freeMemory: os.freemem(),
     cpus: os.cpus().length,
     uptime: os.uptime(),
-    loadavg: os.loadavg()
+    loadavg: os.loadavg(),
   });
 });
 &nbsp;
@@ -398,27 +400,28 @@ app.use(<span class="fstat-no" title="function not covered" >(r</span>eq, res) =
 <span class="cstat-no" title="statement not covered" >  res.status(404).json({</span>
     error: 'Endpoint not found',
     path: req.path,
-    availableEndpoints: ['/', '/health', '/api/info', '/api/system']
+    availableEndpoints: ['/', '/health', '/api/info', '/api/system'],
   });
 });
 &nbsp;
 // Error handler
-app.use(<span class="fstat-no" title="function not covered" >(e</span>rror, req, res, next) =&gt; {
+app.use(<span class="fstat-no" title="function not covered" >(e</span>rror, req, res, next) =&gt; { // eslint-disable-line no-unused-vars
 <span class="cstat-no" title="statement not covered" >  console.error('Unhandled error:', error);</span>
 <span class="cstat-no" title="statement not covered" >  res.status(500).json({</span>
     error: 'Internal server error',
-    message: ENVIRONMENT === 'production' ? 'Something went wrong' : error.message
+    message: ENVIRONMENT === 'production' ? 'Something went wrong' : error.message,
   });
 });
 &nbsp;
-module.exports = app;</pre></td></tr></table></pre>
+module.exports = app;
+&nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-09-06T04:33:54.234Z
+                at 2025-09-09T23:23:22.985Z
             </div>
         <script src="prettify.js"></script>
         <script>

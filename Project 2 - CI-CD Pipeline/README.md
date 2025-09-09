@@ -118,6 +118,7 @@ Add the following secrets:
 | SMTP_USERNAME            | SMTP email username       |
 | SMTP_PASSWORD            | SMTP app password         |
 | NOTIFICATION_EMAIL       | Recipient email for alerts|
+| DATABASE_URL             | PostgreSQL connection string (e.g., postgres://username:password@host:5432/dbname) |
 
 
 ---

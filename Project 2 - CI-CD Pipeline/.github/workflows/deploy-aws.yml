@@ -3,13 +3,11 @@ name: Deploy to AWS ECS
 on:
   push:
     branches: [main]
-    # paths:
-      # - 'Project 2 - CI-CD Pipeline/**'  #Only run when Project 2 directory changes
   pull_request:
     branches: [main]
     paths:
-      - 'Project 2 - CI-CD Pipeline/**' # Consistent path pattern
-  workflow_dispatch: # Allow manual triggering
+      - 'Project 2 - CI-CD Pipeline/**'
+  workflow_dispatch:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -17,17 +15,23 @@ env:
   ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
   ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
   ECS_TASK_DEFINITION: ${{ secrets.ECS_TASK_DEFINITION }}
-  CONTAINER_NAME: 'webapp' # Fixed container name
-  CONTAINER_PORT: '3001' # Fixed container port
-  PROJECT_DIR: 'Project 2 - CI-CD Pipeline' # Define project directory once
+  CONTAINER_NAME: 'webapp'
+  CONTAINER_PORT: '3001'
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  PROJECT_DIR: 'Project 2 - CI-CD Pipeline'
   TRIVY_SEVERITY: 'CRITICAL,HIGH'
   TRIVY_EXIT_CODE: '1'
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
 
 jobs:
   test:
     name: 🧪 Test Application
     runs-on: ubuntu-latest
-    timeout-minutes: 10 # Prevent hanging tests, increase if tests are slow
+    timeout-minutes: 10
     
     defaults:
       run:
@@ -37,7 +41,7 @@ jobs:
     - name: 📥 Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0 # Fetch all history for proper versioning
+        fetch-depth: 0
     
     - name: ⚙️ Setup Node.js
       uses: actions/setup-node@v4
@@ -47,7 +51,7 @@ jobs:
         cache-dependency-path: '${{ env.PROJECT_DIR }}/package-lock.json'
     
     - name: 📦 Install dependencies
-      run: npm ci --audit false # Skip audit for faster builds
+      run: npm ci --audit false
       working-directory: '${{ env.PROJECT_DIR }}'
     
     - name: 🔍 Run linting
@@ -78,17 +82,17 @@ jobs:
     
     - name: 🐳 Build Docker image
       run: |
-        docker build -t local-webapp:latest .
+        docker build -t my-webapp:latest .
       working-directory: '${{ env.PROJECT_DIR }}'
     
-    - name: 🔍 Scan Docker image with Trivy
+    - name: 🔍 Run Trivy vulnerability scanner (always succeed, generate SARIF)
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: 'local-webapp:latest'
+        image-ref: 'my-webapp:latest'
         format: 'sarif'
         output: 'trivy-results.sarif'
         severity: '${{ env.TRIVY_SEVERITY }}'
-        exit-code: '${{ env.TRIVY_EXIT_CODE }}'
+        exit-code: '0'   # ✅ never fail here
         ignore-unfixed: true
         vuln-type: 'os,library'
     
@@ -103,17 +107,53 @@ jobs:
       run: |
         echo "📊 Vulnerability Scan Summary"
         echo "============================"
-        docker run --rm \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasec/trivy:latest \
-          image --severity $TRIVY_SEVERITY --ignore-unfixed local-webapp:latest \
+        trivy image --severity $TRIVY_SEVERITY --ignore-unfixed my-webapp:latest \
           | grep -E "(CRITICAL|HIGH|MEDIUM|LOW)" || echo "No vulnerabilities found in specified severity levels"
     
     - name: ⚠️ Upload results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
-      if: always() # Upload even if tests fail
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
       with:
         sarif_file: trivy-results.sarif
+
+    - name: ❌ Fail job if CRITICAL/HIGH vulnerabilities found
+      run: |
+        if grep -q '"severity":"CRITICAL"' trivy-results.sarif || grep -q '"severity":"HIGH"' trivy-results.sarif; then
+          echo "❌ Critical or High vulnerabilities detected!"
+          exit 1
+        else
+          echo "✅ No Critical/High vulnerabilities found."
+        fi
+  codeql-analysis:
+    name: 🔍 CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+    
+    - name: 🔍 Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: javascript
+    
+    - name: ⚙️ Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: 📦 Install dependencies
+      run: npm ci --audit false
+      working-directory: '${{ env.PROJECT_DIR }}'
+    
+    - name: 🔎 Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: '/language:javascript'
 
   deploy:
     name: 🚀 Deploy to Production
@@ -125,7 +165,7 @@ jobs:
       needs.security-scan.result == 'success' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     environment: production
-    timeout-minutes: 20 # Deployment can take time, increase for large deployments
+    timeout-minutes: 20
     
     steps:
     - name: 📥 Checkout code
@@ -163,6 +203,7 @@ jobs:
           -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
           -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
           .
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT  
         echo "✅ Docker image built successfully"
       working-directory: '${{ env.PROJECT_DIR }}'
     
@@ -214,12 +255,12 @@ jobs:
           --region ${{ env.AWS_REGION }}
         echo "✅ New task definition registered"
     
-    - name: 🚀 Deploy to ECS service
+    - name: 🚀Deploy to ECS service
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
       with:
         task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
         service: ${{ env.ECS_SERVICE }}
-        cluster: ${{ env.ECS_CLUSTER }}
+        cluster: my-devops-cluster
         wait-for-service-stability: true
         timeout: 600
     
@@ -288,13 +329,11 @@ jobs:
         echo "- **Main Application**: [$APPLICATION_URL]($APPLICATION_URL)" >> $GITHUB_STEP_SUMMARY
         echo "- **Health Check**: [$APPLICATION_URL/health]($APPLICATION_URL/health)" >> $GITHUB_STEP_SUMMARY
         echo "- **API Info**: [$APPLICATION_URL/api/info]($APPLICATION_URL/api/info)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "">> $GITHUB_STEP_SUMMARY
         echo "## 🔗 AWS Console Links" >> $GITHUB_STEP_SUMMARY
         echo "- **ECS Service**: [View in Console](https://console.aws.amazon.com/ecs/home?region=$AWS_REGION#/clusters/$ECS_CLUSTER/services/$ECS_SERVICE)" >> $GITHUB_STEP_SUMMARY
         echo "- **CloudWatch Logs**: [View Logs](https://console.aws.amazon.com/cloudwatch/home?region=$AWS_REGION#logsV2:log-groups/log-group/%2Fecs%2F$ECS_TASK_DEFINITION)" >> $GITHUB_STEP_SUMMARY
         echo "- **ECR Repository**: [View Images](https://console.aws.amazon.com/ecr/repositories/private/$AWS_REGION/$ECR_REPOSITORY?region=$AWS_REGION)" >> $GITHUB_STEP_SUMMARY
-
-  # Optional: Add a cleanup job for failed deployments
   cleanup:
     name: 🧹 Cleanup (on failure)
     runs-on: ubuntu-latest
@@ -320,7 +359,6 @@ jobs:
         echo "Deploy result: ${{ needs.deploy.result }}"
         echo "Workflow status: ${{ job.status }}"
         
-        # Clean up any locally built images to save space
         echo "Cleaning up local Docker images..."
         docker system prune -f --filter "until=24h" || echo "Docker cleanup failed"
     
@@ -329,7 +367,6 @@ jobs:
       run: |
         echo "Checking for recently pushed images to clean up..."
         
-        # List recent images and delete them if deployment failed
         RECENT_IMAGES=$(aws ecr list-images \
           --repository-name $ECR_REPOSITORY \
           --region $AWS_REGION \
@@ -349,7 +386,6 @@ jobs:
         else
           echo "No recent images found for cleanup"
         fi
-
   notifications:
     name: 📧 Send Email Notifications
     runs-on: ubuntu-latest
@@ -438,7 +474,7 @@ jobs:
                   </tr>
                   <tr>
                     <td>🔒 Security Scanning</td>
-                    <td class="${{ needs.security-scan.result == 'success' && 'status-success' || needs.security-scan.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.security-scan.result || 'skipped' }}</td>
+                    <td class="${{ needs.security-scan.result =='success' && 'status-success' || needs.security-scan.result == 'failure' && 'status-failure' || 'status-skipped' }}">${{ needs.security-scan.result || 'skipped' }}</td>
                   </tr>
                   <tr>
                     <td>🚀 Deploy to Production</td>

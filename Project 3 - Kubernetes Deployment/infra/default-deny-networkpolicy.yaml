@@ -1,0 +1,39 @@
+# Default deny all traffic in the webapp-prod namespace, with exceptions for monitoring and ALB.
+# A default-deny NetworkPolicy for the webapp-prod namespace, plus a policy allowing traffic from monitoring namespace for metrics scraping.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-from-alb-and-monitoring
+  namespace: webapp-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: my-webapp
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        # ALB controller in kube-system (if using AWS ALB controller)
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: aws-load-balancer-controller
+        # Prometheus / monitoring namespace
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+        # same namespace (other pods)
+        - podSelector: {}
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+    # Optionally add rules for accessing databases, caches, etc.

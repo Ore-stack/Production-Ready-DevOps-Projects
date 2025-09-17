@@ -1,0 +1,22 @@
+# Constraint enforcing Pod Security standards in the production environment using OPA Gatekeeper
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRestrictedPodSecurity
+metadata:
+  name: enforce-restricted-pod-security-prod
+spec:
+  # enforcementAction: deny (default) 👈 blocks non-compliant pods
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    excludedNamespaces:
+      - kube-system
+      - gatekeeper-system
+      - cert-manager
+      - falco
+    namespaces:
+      - webapp-prod
+      - monitoring
+      - cert-manager
+      - falco
+# Note: Adjust namespaces as needed based on your cluster setup.

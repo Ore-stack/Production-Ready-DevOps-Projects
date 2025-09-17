@@ -1,0 +1,85 @@
+# EKS Cluster Configuration for Production Environment
+# This configuration sets up a robust EKS cluster with managed node groups, IAM roles for service accounts (IRSA), and security best practices.
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: my-webapp-prod
+  region: us-east-1
+  version: "1.29"
+
+# VPC configuration - using default settings, customize as needed
+vpc:
+  cidr: 10.0.0.0/16
+  nat:
+    gateway: HighlyAvailable  
+
+# OIDC is required for IRSA (IAM Roles for Service Accounts)
+iam:
+  withOIDC: true
+
+  # Recommended: create minimal service accounts here and map to IAM
+  serviceAccounts:
+    # ALB Controller SA with necessary policies
+    - metadata:
+        name: aws-load-balancer-controller
+        namespace: kube-system
+      wellKnownPolicies:
+        awsLoadBalancerController: true
+      # eksctl will create the IAM role & attach the awsLoadBalancerController policy
+
+    # Prometheus SA with CloudWatch Agent policy
+    - metadata:
+        name: prometheus
+        namespace: monitoring
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      roleName: eksctl-prometheus-sa
+
+    # Cert-Manager SA with Route53 Full Access (for DNS01 challenges)
+    - metadata:
+        name: cert-manager
+        namespace: cert-manager
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonRoute53FullAccess
+      roleName: eksctl-cert-manager-sa
+
+   # CI/CD Deployer SA with full access to EKS (for kubectl, helm, etc.)
+    - metadata:
+        name: ci-cd-deployer
+        namespace: webapp-prod
+      roleName: eksctl-webapp-deployer-sa
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+# Control plane logging / CloudWatch
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+
+# Encryption at rest example (KMS)
+secretsEncryption:
+  keyARN: arn:aws:kms:us-east-1:364042451378:key/5bb4c8c0-2048-470c-8669-66a4f0cfbb66
+
+managedNodeGroups:
+  - name: ng-prod-ondemand
+    instanceType: t3.medium
+    desiredCapacity: 3
+    minSize: 3
+    maxSize: 6
+    iam:
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  - name: ng-prod-spot
+    instanceType: t3.medium
+    spot: true
+    desiredCapacity: 2
+    minSize: 0
+    maxSize: 4
+
+# Note: Replace the keyARN with your KMS key ARN if you enable secrets encryption.

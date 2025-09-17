@@ -1,0 +1,64 @@
+# Create namespaces and set Pod Security admission labels (Pod Security Standards). Use restricted for app namespaces and baseline for monitoring where necessary.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: webapp-prod
+  labels:
+    pod-security.kubernetes.io/enforce: "restricted"
+    pod-security.kubernetes.io/audit: "baseline"
+    pod-security.kubernetes.io/warn: "baseline"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    pod-security.kubernetes.io/enforce: "baseline"
+    pod-security.kubernetes.io/audit: "baseline"
+    pod-security.kubernetes.io/warn: "baseline"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+  labels:
+    pod-security.kubernetes.io/enforce: "baseline"
+    pod-security.kubernetes.io/audit: "baseline"
+    pod-security.kubernetes.io/warn: "baseline"
+
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: falco
+  labels:
+    pod-security.kubernetes.io/enforce: "baseline"
+    pod-security.kubernetes.io/audit: "baseline"
+    pod-security.kubernetes.io/warn: "baseline"
+
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: webapp-dev
+  labels:
+    pod-security.kubernetes.io/enforce: "baseline"
+    pod-security.kubernetes.io/audit: "baseline"
+    pod-security.kubernetes.io/warn: "baseline" 
+# Note: Adjust namespaces and labels as needed based on your cluster setup.
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: webapp-staging
+  labels:
+    pod-security.kubernetes.io/enforce: "baseline"
+    pod-security.kubernetes.io/audit: "baseline"
+    pod-security.kubernetes.io/warn: "baseline"

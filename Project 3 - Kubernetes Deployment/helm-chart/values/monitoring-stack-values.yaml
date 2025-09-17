@@ -1,0 +1,57 @@
+# monitoring-stack-values.yaml
+# Values file for deploying a monitoring stack with Prometheus and Alertmanager using Helm.
+# Grafana is disabled as per your requirement.
+# Adjust storage, retention, and other settings as needed for your environment.
+
+# Prometheus configuration
+prometheus:
+  enabled: true
+  serviceMonitor:
+    interval: "30s"
+    scrapeTimeout: "10s"
+    
+  # Additional recommended settings
+  retention: "15d"
+  storageSpec:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: "standard"
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
+
+# Grafana configuration (disabled as per your requirement)
+grafana:
+  enabled: false
+  # If enabled later:
+  # adminUser: "admin"
+  # adminPassword: "password"
+  # persistence:
+  #   enabled: true
+  #   size: 10Gi
+
+# Alertmanager configuration
+alertmanager:
+  enabled: true
+  config:
+    global:
+      resolve_timeout: "5m"
+    route:
+      group_by: ['job']
+      group_wait: "30s"
+      group_interval: "5m"
+      repeat_interval: "12h"
+      receiver: 'null'
+    receivers:
+    - name: 'null'
+
+# Additional monitoring components (optional)
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+prometheusOperator:
+  enabled: true

@@ -1,0 +1,16 @@
+# Use the pre-created SA and reduce privileges where possible.
+
+server:
+  serviceAccount:
+    create: false
+    name: prometheus
+  persistentVolume:
+    enabled: true
+    size: 20Gi
+    storageClass: gp2
+  securityContext:
+    runAsUser: 1000
+    fsGroup: 2000
+
+alertmanager:
+  enabled: true

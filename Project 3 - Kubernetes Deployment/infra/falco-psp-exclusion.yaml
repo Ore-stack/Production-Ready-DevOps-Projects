@@ -1,0 +1,9 @@
+# Falco namespace with PSP exclusion
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRestrictedPodSecurity
+metadata:
+  name: enforce-restricted-pod-security-prod
+spec:
+  match:
+    excludedNamespaces:
+      - falco

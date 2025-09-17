@@ -1,0 +1,99 @@
+# Medium cluster with spot nodes for testing
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: my-webapp-staging
+  region: us-east-1
+  version: "1.29"
+
+vpc:
+  cidr: 192.168.0.0/16 # Custom CIDR for staging VPC
+  nat:
+    gateway: HighlyAvailable
+  clusterEndpoints:
+    publicAccess: true
+    privateAccess: true
+    
+iam:
+  withOIDC: true
+
+addons:
+  - name: vpc-cni
+    version: latest
+    attachPolicyARNs:
+      - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+  - name: coredns
+    version: latest
+    attachPolicyARNs:
+      - arn:aws:iam::aws:policy/AmazonEKS_CorednsPolicy
+  - name: kube-proxy
+    version: latest  
+
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+
+managedNodeGroups:
+  - name: ng-staging-ondemand0
+    instanceTypes: ["t3.small"] # Free tier eligible instance type for testing - 2 vCPU, 2GB RAM, use larger for real workloads
+    desiredCapacity: 1 # Start with 1 node
+    minSize: 1
+    maxSize: 3
+    volumeSize: 20
+    # Explicit IAM policies
+    iam:
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+    # Add labels and tags
+    labels:
+      role: worker
+    tags:
+      Environment: staging
+    ssh:
+      allow: true
+      publicKeyName: eksctl-my-webapp-dev-nodegroup-ng-dev-14:2d:a5:ac:24:50:36:34:2a:6d:6f:3e:e2:0e:6f:9b  
+
+  - name: ng-staging-spot
+    instanceTypes: ["t3.small"] # Smaller instance type (free tier eligible), use larger in production
+    spot: true
+    desiredCapacity: 1
+    minSize: 1
+    maxSize: 3
+    ssh:
+      allow: true
+      publicKeyName: eksctl-my-webapp-dev-nodegroup-ng-dev-14:2d:a5:ac:24:50:36:34:2a:6d:6f:3e:e2:0e:6f:9b
+    volumeSize: 20
+    iam:
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+    labels:
+      role: worker
+      environment: staging
+      lifecycle: spot
+    tags:
+      Environment: staging 
+      Lifecycle: spot
+      Role: worker
+      Team: devops
+      Project: webapp
+      OwnerName: Oreoluwa Osinowo
+      OwnerEmail: oreoluwaosinowo@yahoo.com 
+      CostCenter: "12345"
+      Department: IT
+      Application: webapp
+      EnvironmentType: staging
+      Compliance: internal
+      Backup: daily
+      Monitoring: enabled
+      SecurityLevel: high
+      BusinessUnit: web
+      Service: webapp-service
+      Version: v1.0
+      ManagedBy: eksctl

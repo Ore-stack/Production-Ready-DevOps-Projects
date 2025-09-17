@@ -1,0 +1,69 @@
+# values.yaml for My WebApp Helm Chart    
+
+# ServiceMonitor configuration
+serviceMonitor:
+  enabled: true
+  name: "my-webapp-servicemonitor"
+  namespace: "monitoring"
+  labels:
+    app: "my-webapp-monitor"
+    release: "prometheus"
+  selector:
+    matchLabels:
+      app: "my-webapp"
+  namespaceSelector:
+    matchNames:
+      - "webapp-prod"
+  endpoints:
+    - port: "http"
+      interval: "15s"
+      path: "/metrics"
+      scheme: "http"
+      scrapeTimeout: "10s"
+      honorLabels: true
+
+# Application configuration
+app:
+  name: "my-webapp"
+  namespace: "webapp-prod"
+  port: 3001
+  metricsPath: "/metrics"
+  image:
+    repository: "my-registry/my-webapp"
+    tag: "latest"
+    pullPolicy: "IfNotPresent"
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# Service configuration
+service:
+  enabled: true
+  type: "ClusterIP"
+  port: 3001
+  targetPort: 3001
+  portName: "http"  # This should match serviceMonitor.endpoints.port
+
+# Prometheus configuration (if you're deploying Prometheus too)
+prometheus:
+  enabled: false  # Set to true if you want to deploy Prometheus with this chart
+  releaseLabel: "prometheus"
+  serviceAccount:
+    create: true
+  serviceMonitor:
+    interval: "15s"
+    scrapeTimeout: "10s"
+
+# Additional monitoring options
+monitoring:
+  enabled: true
+  prometheusRule:
+    enabled: false
+    additionalLabels: {}
+  grafana:
+    enabled: false
+    dashboard: {}

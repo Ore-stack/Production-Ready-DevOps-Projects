@@ -1,0 +1,270 @@
+# Tell Helm not to create a service account and reference the one created by eksctl.
+
+clusterName: my-webapp-staging
+region: us-east-1
+vpcId: vpc-003c59886983f2439
+
+serviceAccount:
+  create: false
+  name: aws-load-balancer-controller
+  # If you prefer IRSA annotation here instead of eksctl-generated role:
+  # annotations:
+  #   eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/eksctl-aws-load-balancer-controller
+  # alb.ingress.kubernetes.io/scheme: internet-facing
+  # alb.ingress.kubernetes.io/target-type: ip
+  # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+  # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/abcd1234-abcd-1234-abcd-1234abcd1234  # Example annotation for HTTPS with ACM certificate ARN
+  # alb.ingress.kubernetes.io/subnets: subnet-xxxxxx,subnet-yyyyyy  # Optional: specify subnets if needed
+  # alb.ingress.kubernetes.io/security-groups: sg-xxxxxx  # Optional: specify security groups if needed
+  # alb.ingress.kubernetes.io/healthcheck-path: /healthz  # Optional: customize health check path
+  # alb.ingress.kubernetes.io/healthcheck-port: "80"  # Optional: customize health check port
+  # alb.ingress.kubernetes.io/healthcheck-protocol: HTTP  # Optional: customize health check protocol
+  # alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"  # Optional: customize health check interval
+  # alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"  # Optional: customize health check timeout
+  # alb.ingress.kubernetes.io/healthy-threshold-count: "3"  # Optional: customize healthy threshold count
+  # alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"  # Optional: customize unhealthy threshold count
+  # alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=60  # Optional: customize load balancer attributes like idle timeout 
+  # alb.ingress.kubernetes.io/tags: Environment=prod,Team=devops  # Optional: add tags to the ALB 
+  # alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-2016-08  # Optional: specify SSL policy for HTTPS listeners 
+  # alb.ingress.kubernetes.io/waf-acl-id: arn:aws:wafv2:us-east-1:123456789012:regional/webacl/name/uuid  # Optional: associate a WAF ACL with the ALB  
+  # alb.ingress.kubernetes.io/ip-address-type: ipv4  # Optional: specify IP address type (ipv4 or dualstack)  
+  # alb.ingress.kubernetes.io/enable-http2: 'true'  # Optional: enable HTTP/2 on the ALB  
+  # alb.ingress.kubernetes.io/enable-access-log: 'true'  # Optional: enable access logging for the ALB  
+  # alb.ingress.kubernetes.io/access-log-s3-bucket-name: my-alb-logs  # Optional: specify S3 bucket for access logs  
+  # alb.ingress.kubernetes.io/access-log-s3-bucket-prefix: logs/  # Optional: specify S3 bucket prefix for access logs  
+  # alb.ingress.kubernetes.io/ssl-redirect: '443'  # Optional: redirect HTTP to HTTPS  
+  # alb.ingress.kubernetes.io/backend-protocol: HTTP  # Optional: specify backend protocol (HTTP or HTTPS)  
+  # alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=86400  # Optional: customize target group attributes like stickiness  
+  # alb.ingress.kubernetes.io/target-group-healthcheck-interval-seconds: "30"  # Optional: customize target group health check interval  
+  # alb.ingress.kubernetes.io/target-group-healthcheck-timeout-seconds: "5"  # Optional: customize target group health check timeout  
+  # alb.ingress.kubernetes.io/target-group-healthy-threshold-count: "3"  # Optional: customize target group healthy threshold count  
+  # alb.ingress.kubernetes.io/target-group-unhealthy-threshold-count: "3"  # Optional: customize target group unhealthy threshold count  
+  # alb.ingress.kubernetes.io/target-group-deregistration-delay: "300"  # Optional: customize target group deregistration delay  
+  # alb.ingress.kubernetes.io/target-group-stickiness-duration-seconds: "86400"  # Optional: customize target group stickiness duration  
+  # alb.ingress.kubernetes.io/target-group-protocol-version: HTTP1  # Optional: specify target group protocol version (HTTP1 or HTTP2 or GRPC)  
+  # alb.ingress.kubernetes.io/target-group-arn: arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/my-target-group/abcd1234abcd1234  # Example annotation to specify an existing target group ARN    
+  # alb.ingress.kubernetes.io/load-balancer-arn: arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/my-load-balancer/abcd1234abcd1234  # Example annotation to specify an existing load balancer ARN  
+  # alb.ingress.kubernetes.io/healthcheck-enabled: 'true'  # Optional: enable or disable health checks    
+  # alb.ingress.kubernetes.io/healthcheck-success-codes: "200,302"  # Optional: customize health check success codes  
+  # alb.ingress.kubernetes.io/healthcheck-match: "200-399"  # Optional: customize health check match criteria 
+  # alb.ingress.kubernetes.io/healthcheck-port: "traffic-port"  # Optional: use traffic port for health checks  
+  # alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS  # Optional: use HTTPS for health checks  
+  # alb.ingress.kubernetes.io/healthcheck-path: /custom-healthz  # Optional: customize health check path  
+  # alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"  # Optional: customize health check interval   
+  # alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "10"  # Optional: customize health check timeout  
+  # alb.ingress.kubernetes.io/healthy-threshold-count: "5"  # Optional: customize healthy threshold count  
+  # alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"  # Optional: customize unhealthy threshold count   
+  # alb.ingress.kubernetes.io/load-balancer-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-alb-logs,access_logs.s3.prefix=prod  # Optional: customize load balancer attributes like access logging    
+  # alb.ingress.kubernetes.io/tags: Environment=production,Team=devops  # Optional: add tags to the ALB 
+  # alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01  # Optional: specify SSL policy for HTTPS listeners 
+  # alb.ingress.kubernetes.io/waf-acl-id: arn:aws:wafv2:us-east-1:123456789012:regional/webacl/my-waf-acl/abcd1234-abcd-1234-abcd-1234abcd1234  # Optional: associate a WAF ACL with the ALB  
+  # alb.ingress.kubernetes.io/ip-address-type: dualstack  # Optional: specify IP address type (ipv4 or dualstack)  
+  # alb.ingress.kubernetes.io/enable-http2: 'false'  # Optional: disable HTTP/2 on the ALB  
+  # alb.ingress.kubernetes.io/enable-access-log: 'false'  # Optional: disable access logging for the ALB  
+  # alb.ingress.kubernetes.io/access-log-s3-bucket-name: my-existing-alb-logs
+  # alb.ingress.kubernetes.io/access-log-s3-bucket-prefix: existing-logs/  # Optional: specify S3 bucket prefix for access logs  
+  # alb.ingress.kubernetes.io/ssl-redirect: '443'  # Optional: redirect HTTP to HTTPS  
+  # alb.ingress.kubernetes.io/backend-protocol: HTTPS  # Optional: specify backend protocol (HTTP or HTTPS)  
+  # alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=false  # Optional: disable stickiness  
+  # alb.ingress.kubernetes.io/target-group-healthcheck-interval-seconds: "15"  # Optional: customize target group health check interval  
+  # alb.ingress.kubernetes.io/target-group-healthcheck-timeout-seconds: "10"  # Optional: customize target group health check timeout  
+  # alb.ingress.kubernetes.io/target-group-healthy-threshold-count: "5"  # Optional: customize target group healthy threshold count  
+  # alb.ingress.kubernetes.io/target-group-unhealthy-threshold-count: "2"  # Optional:
+  # alb.ingress.kubernetes.io/target-group-deregistration-delay: "200"  # Optional: customize target group deregistration delay  
+  # alb.ingress.kubernetes.io/target-group-stickiness-duration-seconds: "3600"  # Optional: customize target group stickiness duration  
+  # alb.ingress.kubernetes.io/target-group-protocol-version: HTTP2  # Optional: specify target group protocol version ( HTTP1 or HTTP2 or GRPC)  
+  # alb.ingress.kubernetes.io/target-group-arn: arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/existing-target-group/abcd1234abcd1234  # Example annotation to specify an existing target group ARN    
+  # alb.ingress.kubernetes.io/load-balancer-arn: arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/existing    load-balancer/abcd1234abcd1234  # Example annotation to specify an existing load balancer ARN   
+controller:
+  name: aws-load-balancer-controller
+  image:
+    repository: amazon/aws-alb-ingress-controller
+    tag: v2.4.7
+    pullPolicy: IfNotPresent
+  args:
+    - --cluster-name=my-webapp-staging
+    - --ingress-class=alb
+    - --aws-vpc-id=vpc-003c59886983f2439 # Replace with your VPC ID     
+    - --aws-region=us-east-1
+    - --log-level=info
+    - --enable-shield=false
+    - --enable-waf=false
+    - --enable-wafv2=false
+   # - --default-backend-service=webapp-prod/my-webapp:80 # Optional: specify default backend service
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  nodeSelector: {}  # Optional: specify node selector if needed
+  tolerations: []  # Optional: specify tolerations if needed
+  affinity: {}  # Optional: specify affinity rules if needed      
+  podAnnotations: {}  # Optional: add custom annotations to the controller pod
+  podLabels: {}  # Optional: add custom labels to the controller pod
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 2000
+    fsGroup: 2000
+  livenessProbe:  # Optional: customize liveness probe
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 5   
+  readinessProbe:  # Optional: customize readiness probe
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5     
+    failureThreshold: 3
+  hostNetwork: false  # Optional: set to true to use host network
+  dnsPolicy: ClusterFirst  # Optional: customize DNS policy       
+  extraArgs: {}  # Optional: add extra arguments if needed  
+  extraEnv: []  # Optional: add extra environment variables if needed 
+  extraVolumes: []  # Optional: add extra volumes if needed       
+  extraVolumeMounts: []  # Optional: add extra volume mounts if needed       
+  priorityClassName: ""  # Optional: specify priority class name if needed      
+  terminationGracePeriodSeconds: 30  # Optional: customize termination grace period
+  metrics:
+    enabled: false  # Optional: enable metrics endpoint   
+    service:
+      annotations: {}
+      labels: {}
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080  
+      nodePort: null  # Optional: specify nodePort if type is NodePort
+    serviceMonitor:   # Optional: configure ServiceMonitor for Prometheus Operator
+      enabled: false
+      namespace: monitoring
+      interval: 30s
+      scrapeTimeout: 10s
+      labels: {}
+      metricRelabelings: []
+      relabelings: []       
+  podDisruptionBudget:          
+    enabled: false  # Optional: enable PodDisruptionBudget
+    minAvailable: 1
+    maxUnavailable: null
+    labels: {}
+    annotations: {}
+  autoscaling:
+    enabled: false  # Optional: enable Horizontal Pod Autoscaler
+    minReplicas: 2    
+    maxReplicas: 5      
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: null  # Optional: target memory utilization percentage
+    scaleDownDelaySeconds: 300  # Optional: delay before scaling down
+    scaleUpDelaySeconds: 0  # Optional: delay before scaling up
+    behavior: {}  # Optional: customize scaling behavior
+  rolloutStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1     
+      maxSurge: 1   
+  lifecycleHooks: {}  # Optional: add lifecycle hooks if needed 
+  terminationGracePeriodSeconds: 30  # Optional: customize termination grace period
+  imagePullSecrets: []  # Optional: specify image pull secrets if needed
+  debug: false  # Optional: enable debug mode for more verbose logging          
+replicaCount: 1  # Typically 1 for controllers, can be increased for high availability        
+# Note: Ensure the IAM role associated with the service account has the necessary permissions for ALB operations.   
+# Note: Adjust resource requests/limits based on your cluster size and expected load.  
+# Note: Ensure your cluster has the AWS Load Balancer Controller CRDs installed.          
+# Note: Ensure your cluster's security groups and network ACLs allow necessary traffic for ALB and backend services.  
+# Note: Monitor the controller logs and metrics to ensure it's functioning correctly and efficiently.  
+# Note: Regularly update the controller image to benefit from the latest features and security patches. 
+# Note: Test the ALB and backend services thoroughly to ensure proper routing and health checks.      
+# Note: Consider using a private container registry and configure imagePullSecrets if needed.           
+# Note: Ensure your container image is scanned for vulnerabilities and follows best practices.    
+# Note: Review and comply with AWS best practices for security, cost management, and performance when using ALB in EKS.
+# Note: Consider using AWS WAF and Shield for enhanced security of your ALB and applications.
+# Note: Consider using AWS CloudWatch for monitoring and alerting on ALB metrics and logs       
+# Note: Consider using AWS Certificate Manager (ACM) for managing SSL/TLS certificates for HTTPS listeners on the ALB.
+# Note: Consider using Route 53 for DNS management and routing traffic to your ALB.
+# Note: Consider using Terraform or CloudFormation for managing the infrastructure as code, including the EKS cluster and ALB resources.
+# Note: Consider using GitOps practices with tools like ArgoCD or Flux for managing Kubernetes manifests and deployments.
+# Note: Consider using Helm or Kustomize for managing Kubernetes manifests in a more structured way.
+# Note: Consider using namespaces and resource quotas to  manage resources and access in a multi-tenant cluster.
+# Note: Consider using secrets and config maps to manage sensitive data and configuration separately from the application code.
+# Note: Consider using a CI/CD pipeline to automate deployments and updates to the ALB controller and related resources.
+# Note: Consider using a service mesh like Istio for advanced traffic management, security, and observability.          
+# Note: Consider using PodDisruptionBudgets for high availability during node maintenance.
+# Note: Consider using Horizontal Pod Autoscaler (HPA) for scaling based on load.
+# Note: Consider adding logging and monitoring sidecars or agents if needed.        
+# Note: Consider adding NetworkPolicies to restrict traffic to/from the ALB controller pods as needed.
+# Note: Consider using a private container registry and configure imagePullSecrets if needed.           
+# Note: Ensure your container image is scanned for vulnerabilities and follows best practices.    
+# Note: Review and comply with AWS best practices for security, cost management, and performance when using ALB in EKS.
+# Note: Regularly update the controller image to benefit from the latest features and security patches. 
+# Note: Test the ALB and backend services thoroughly to ensure proper routing and health checks.      
+# Note: Monitor the controller logs and metrics to ensure it's functioning correctly and efficiently.  
+# Note: Ensure the IAM role associated with the service account has the necessary permissions for ALB operations.   
+# Note: Adjust resource requests/limits based on your cluster size and expected load.  
+# Note: Ensure your cluster has the AWS Load Balancer Controller CRDs installed.          
+# Note: Ensure your cluster's security groups and network ACLs allow necessary traffic for ALB and backend services.
+# Note: Consider using AWS WAF and Shield for enhanced security of your ALB and applications.
+# Note: Consider using AWS CloudWatch for monitoring and alerting on ALB metrics and logs       
+# Note: Consider using AWS Certificate Manager (ACM) for managing SSL/TLS certificates for HTTPS listeners on the ALB.
+# Note: Consider using Route 53 for DNS management and routing traffic to your ALB.
+# Note: Consider using Terraform or CloudFormation for managing the infrastructure as code, including the EKS cluster and ALB resources.
+# Note: Consider using GitOps practices with tools like ArgoCD or Flux for managing Kubernetes manifests and deployments.
+# Note: Consider using Helm or Kustomize for managing Kubernetes manifests in a more structured way.
+# Note: Consider using namespaces and resource quotas to  manage resources and access in a multi-tenant cluster.
+# Note: Consider using secrets and config maps to manage sensitive data and configuration separately from the application code.
+# Note: Consider using a CI/CD pipeline to automate deployments and updates to the ALB controller and related resources
+# Note: Consider using a service mesh like Istio for advanced traffic management, security, and observability.          
+# Note: Consider using PodDisruptionBudgets for high availability during node maintenance.
+# Note: Consider using Horizontal Pod Autoscaler (HPA) for scaling based on load.
+# Note: Consider adding logging and monitoring sidecars or agents if needed.        
+# Note: Consider adding NetworkPolicies to restrict traffic to/from the ALB controller pods as needed   
+# Note: Ensure your cluster has sufficient resources (CPU, memory) to run the ALB controller alongside other workloads.  
+# Note: Regularly review and optimize the ALB controller configuration and resource usage based on actual traffic patterns and application needs.  
+# Note: Test the ALB controller in a staging environment before deploying to production to ensure compatibility and performance.  
+# Note: Stay informed about updates and changes to the AWS Load Balancer Controller and related AWS services to leverage new features and improvements. 
+# Note: Engage with the AWS and Kubernetes communities for support, best practices, and shared experiences when using the ALB controller in EKS.  
+# Note: Document your ALB controller setup, configuration, and operational procedures for future reference and team collaboration.
+# Note: Consider implementing backup and disaster recovery strategies for your EKS cluster and ALB resources  to ensure business continuity in case of failures or outages.
+# Note: Regularly audit and review the security posture of your EKS cluster and ALB setup to identify and mitigate potential vulnerabilities and risks.
+# Note: Consider using cost management tools and practices to monitor and optimize the costs associated with running the ALB controller and related AWS resources.
+# Note: Ensure compliance with relevant regulations and standards when deploying applications and services using the ALB controller in EKS.
+# Note: Continuously evaluate and improve your ALB controller deployment and operations based on feedback, metrics, and evolving requirements to ensure optimal performance, reliability, and security.     
+# Note: Consider using AWS Global Accelerator for improved performance and availability of your applications deployed behind the ALB.
+# Note: Consider using AWS PrivateLink for secure and private connectivity to your ALB from on-premises or other VPCs.
+# Note: Consider using AWS App Mesh for advanced service-to-service communication and observability in conjunction with the ALB controller.
+# Note: Consider using AWS CloudFormation StackSets or Terraform modules for consistent and repeatable deployment of the ALB controller and related resources across multiple environments or regions.
+# Note: Consider using AWS IAM Access Analyzer to monitor and analyze the permissions and access patterns of the IAM roles associated with the ALB controller and other service accounts in your EKS cluster.
+# Note: Consider using AWS Config and AWS CloudTrail for auditing and compliance monitoring of your EKS cluster and ALB resources.
+# Note: Consider using AWS Systems Manager Parameter Store or AWS Secrets Manager for secure management of sensitive configuration data and secrets used by the ALB controller and other applications in your EKS cluster.
+# Note: Consider using AWS Budgets and Cost Anomaly Detection to monitor and manage the costs associated with running the ALB controller and related AWS resources.
+# Note: Consider using AWS Well-Architected Framework to evaluate and improve the architecture and operations of your EKS cluster and ALB setup.
+# Note: Consider using AWS Support plans for access to technical support and guidance on best practices for running the ALB controller and related AWS services.
+# Note: Consider using AWS Training and Certification resources to enhance your team's skills and knowledge in managing EKS and ALB resources effectively.
+# Note: Consider using AWS Marketplace for third-party tools and solutions that can enhance your ALB controller deployment and operations.
+# Note: Consider using AWS Partner Network (APN) for access to specialized expertise and services for your EKS and ALB deployments.
+# Note: Consider using AWS Service Catalog for managing and provisioning approved ALB controller configurations and related resources in your organization.       
+# Note: Consider using AWS Cloud Development Kit (CDK) for defining and deploying your ALB controller and related infrastructure as code using familiar programming languages.  
+# Note: Consider using AWS Lambda for serverless functions that can interact with your ALB and EKS cluster for automation and event-driven workflows.
+# Note: Consider using AWS Step Functions for orchestrating complex workflows and processes involving your ALB and EKS resources.
+# Note: Consider using AWS EventBridge for event-driven architectures and integrations with your ALB and EKS deployments.
+# Note: Consider using AWS AppConfig for managing and deploying application configurations for services running behind the ALB.
+# Note: Consider using AWS X-Ray for distributed tracing and performance monitoring of applications running behind the ALB.
+# Note: Consider using AWS CloudWatch Synthetics for proactive monitoring and testing of your applications deployed behind the ALB.
+# Note: Consider using AWS CloudWatch Alarms for setting up alerts and notifications based on ALB and application metrics.
+# Note: Consider using AWS CloudWatch Dashboards for visualizing and monitoring the performance and health of your ALB and EKS resources.
+# Note: Consider using AWS CloudWatch Logs for centralized logging and analysis of logs generated by the ALB controller and applications running in your EKS cluster.
+# Note: Consider using AWS CloudWatch Contributor Insights for analyzing and visualizing high-cardinality data from your ALB and applications.
+# Note: Consider using AWS CloudWatch ServiceLens for end-to-end observability of your applications and services running behind the ALB.
+enabled: true
+types:
+  - api
+  - audit
+  - authenticator
+  - controllerManager
+  - scheduler
+# Note: Adjust logging types based on your monitoring and compliance needs.
+cloudWatch:
+  groupName: alb-controller-logs
+  streamPrefix: alb-controller    
+retentionInDays: 30 # Optional: set log retention period          
+# Note: Adjust retention period based on your data retention policies and compliance requirements.
+# Note: Ensure your IAM roles and policies allow necessary permissions for CloudWatch logging.

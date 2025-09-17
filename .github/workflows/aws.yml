@@ -238,6 +238,7 @@ jobs:
       uses: aws-actions/amazon-ecr-login@v2
     
     - name: 🐳 Build Docker image
+<<<<<<< HEAD
       id: build-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -253,6 +254,23 @@ jobs:
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT  
         echo "✅ Docker image built successfully"
       working-directory: '${{ env.PROJECT_DIR }}'
+=======
+    id: build-image
+    env:
+      ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      IMAGE_TAG: ${{ github.sha }}
+    run: |
+      docker build \
+        --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+        --label "org.opencontainers.image.revision=${{ github.sha }}" \
+        --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+        -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+        -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+        .
+      echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+      echo "✅ Docker image built successfully"
+    working-directory: '${{ env.PROJECT_DIR }}'
+>>>>>>> 370715b (Kubernetes Deployment)
     
     - name: 🔍 Scan production image with Trivy
       uses: aquasecurity/trivy-action@master

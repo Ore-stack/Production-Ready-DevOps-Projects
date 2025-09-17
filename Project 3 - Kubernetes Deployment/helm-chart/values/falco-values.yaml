@@ -1,0 +1,193 @@
+falcosidekick:
+  enabled: true
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+  config:
+    ##############################
+    # Slack Alerts
+    ##############################
+    slack:
+      webhookurl: "https://hooks.slack.com/services/TXXXX/BXXXX/XXXXXXXX"
+      minimumpriority: warning   # warning, error, critical, etc.
+      footer: "Falco Alert"
+
+    ##############################
+    # Microsoft Teams Alerts
+    ##############################
+   # teams:
+    #  webhookurl: "https://outlook.office.com/webhook/XXXXXXX"
+     # minimumpriority: warning
+
+    ##############################
+    # Email Alerts via SMTP
+    ##############################
+   # smtp:
+    #  hostport: "smtp.yourprovider.com:587"
+    #  user: "alerts@yourcompany.com"
+    #  password: "super-secret-password"
+    #  from: "falco@yourcompany.com"
+    #  to: "security-team@yourcompany.com"
+    #  outputformat: "html"
+     # minimumpriority: critical
+
+    ##############################
+    # Global Options
+    ##############################
+    jsonOutput: true
+    customfields:
+      cluster: "my-webapp-prod"
+      environment: "production"
+
+  ##############################
+  # Falcosidekick UI (Optional)
+  ##############################
+  ui:
+    enabled: true
+    replicaCount: 1
+    service:
+      type: LoadBalancer
+falco:
+  securityContext:
+    privileged: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    seccompProfile:
+      type: RuntimeDefault
+    tty: false
+    capabilities:
+      add: ["SYS_ADMIN", "NET_ADMIN", "SYS_PTRACE", "SYSLOG", "SYS_RESOURCE"] # Required for eBPF
+
+  volumes:
+    - name: container-engine-socket
+      hostPath:
+        path: /var/run/docker.sock
+    - name: boot-fs
+      hostPath:
+        path: /boot
+    - name: lib-modules
+      hostPath:
+        path: /lib/modules
+    - name: usr
+      hostPath:   
+        path: /usr
+    - name: etc-falco
+      hostPath:
+        path: /etc/falco
+    - name: var-run-secrets-kubernetes-io-serviceaccount
+      hostPath: 
+        path: /var/run/secrets/kubernetes.io/serviceaccount
+  volumeMounts:
+    - name: container-engine-socket
+      mountPath: /host/var/run/docker.sock
+    - name: boot-fs
+      mountPath: /host/boot
+      readOnly: true
+    - name: lib-modules
+      mountPath: /host/lib/modules
+      readOnly: true
+    - name: usr
+      mountPath: /host/usr
+      readOnly: true
+    - name: etc-falco
+      mountPath: /etc/falco
+      readOnly: true
+    - name: var-run-secrets-kubernetes-io-serviceaccount
+      mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      readOnly: true         
+  falco:yaml:
+    json_output: true
+    json_include_output_property: true
+    ebpf:
+      enabled: true
+    k8s_audit:
+      enabled: true
+    k8s_audit_config:
+      buffer_size: 8192
+      max_batch_wait: 200ms
+      max_batch_size: 512
+      url: https://kubernetes.default.svc:443/apis/audit.k8s.io/v1/auditevents
+      bearer_token_path: /var/run/secrets/kubernetes.io/serviceaccount/token
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    rules_file:
+      - /etc/falco/falco_rules.yaml
+      - /etc/falco/falco_rules.local.yaml
+    syscalls:
+      - all
+    outputs:
+      - name: stdout
+        enabled: true
+      - name: falcosidekick
+        enabled: true
+  config:
+    falco_rules_local: |
+      # Custom rules can be added here
+      - rule: Write below etc
+        desc: Detect writes below /etc
+        condition: evt.type in (open, openat) and fd.name startswith /etc
+        output: "Write below /etc (user=%user.name command=%proc.cmdline file=%fd.name)"
+        priority: WARNING
+        tags: [filesystem, mitre_persistence]
+      - rule: Create or Delete Kubernetes Secret
+        desc: Detect creation or deletion of Kubernetes Secrets
+        condition: evt.type in (create, unlink) and fd.name startswith "/var/run/secrets/kubernetes.io/serviceaccount/..data"
+        output: "Kubernetes Secret created or deleted (user=%user.name command=%proc.cmdline file=%fd.name)"
+        priority: CRITICAL
+        tags: [k8s, mitre_credential_access]
+      - rule: Create or Delete Kubernetes ConfigMap 
+        desc: Detect creation or deletion of Kubernetes ConfigMaps
+        condition: evt.type in (create, unlink) and fd.name startswith "/var/run/secrets/kubernetes.io/configmap/..data"
+        output: "Kubernetes ConfigMap created or deleted (user=%user.name command=%proc.cmdline file=%fd.name)"
+        priority: CRITICAL
+        tags: [k8s, mitre_credential_access]
+      - rule: Outbound Connection to Suspicious IPs
+        desc: Detect outbound connections to known malicious IP addresses
+        condition: evt.type=connect and fd.sip in (1.2.3.
+
+
+  drivers:
+    enabled: true
+    kindd: ebpf
+    bpfprobe: /host/usr/bin/bpfprobe
+    bpfdir: /host/sys/fs/bpf/falco
+  hostRoot: /hostfs
+  runtime:
+    containerd:
+      enabled: true
+    docker:
+      enabled: false
+    cri-o:
+      enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  tolerations:
+    - key: "node-role.kubernetes.io/worker"
+      operator: "Exists"
+      effect: "NoSchedule"
+  nodeSelector:
+    role: worker
+  service:  
+    type: DaemonSet # Use DaemonSet for Falco to run on all nodes
+    hostNetwork: true
+    dnsPolicy: ClusterFirstWithHostNet
+    annotations: {}
+  serviceAccount:
+    create: true
+    name: falco
+    # If you prefer IRSA annotation here instead of eksctl-generated role:
+    # annotations:
+
+

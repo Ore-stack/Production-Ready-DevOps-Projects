@@ -1,0 +1,21 @@
+# ArgoCD Application manifest to deploy the my-webapp application to the my-webapp namespace
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: my-webapp
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/Ore-stack/Production-Ready-DevOps-Projects.git'
+    targetRevision: main
+    path: apps/my-webapp
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: my-webapp
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true # Auto-create namespace if it doesn't exist          

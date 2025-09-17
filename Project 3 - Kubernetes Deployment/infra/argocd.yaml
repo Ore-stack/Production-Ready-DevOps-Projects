@@ -1,0 +1,35 @@
+# ArgoCD Application manifest to deploy the infra directory to the kube-system namespace
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-infra
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/Ore-stack/Production-Ready-DevOps-Projects.git'
+    targetRevision: main
+    path: infra
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true       # Delete resources removed from Git
+      selfHeal: true    # Reapply drifted resources
+    syncOptions:
+      - CreateNamespace=true  # Auto-create namespace if it doesn't exist
+      - ApplyOutOfSyncOnly=true # Only apply resources that are out of sync
+  ignoreDifferences:
+    - group: ""
+      kind: ConfigMap
+      name: cluster-info
+      namespace: kube-system
+      jsonPointers:
+        - /data
+    - group: ""
+      kind: Secret
+      name: cluster-credentials
+      namespace: kube-system
+      jsonPointers:
+        - /data   # Ignore changes in secret data

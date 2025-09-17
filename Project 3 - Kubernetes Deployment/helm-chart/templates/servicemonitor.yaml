@@ -1,0 +1,35 @@
+# servicemonitor.yaml - Helm template for Prometheus ServiceMonitor to scrape metrics from the web application.
+# Adjust the values in values.yaml as needed for your setup.    
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Values.serviceMonitor.name }}
+  namespace: {{ .Values.serviceMonitor.namespace }}
+  labels:
+    release: {{ .Values.prometheus.releaseLabel }}
+    app: {{ .Values.serviceMonitor.appLabel }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.serviceMonitor.targetApp }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.serviceMonitor.targetNamespace }}
+  endpoints:
+    - port: {{ .Values.serviceMonitor.port }}
+      interval: {{ .Values.prometheus.serviceMonitor.interval }}
+      path: {{ .Values.serviceMonitor.path }}
+      scheme: http
+      honorLabels: true
+      scrapeTimeout: {{ .Values.prometheus.serviceMonitor.scrapeTimeout }}
+      # Optional TLS config if your metrics endpoint uses TLS
+      # tlsConfig:
+      #   insecureSkipVerify: true
+      #   caFile: /path/to/ca.crt
+  jobLabel: {{ .Values.serviceMonitor.jobLabel }}
+  # Optional: relabeling rules to add or modify labels on scraped metrics
+  relabelings:
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod      

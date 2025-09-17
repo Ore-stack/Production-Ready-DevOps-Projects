@@ -1,0 +1,85 @@
+# ConstraintTemplate defining Pod Security restrictions using Open Policy Agent (OPA) and Gatekeeper
+# This template enforces security best practices for Pods, such as disallowing privileged containers,
+# requiring non-root users, and restricting host network/volume usage.
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8srestrictedpodsecurity
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRestrictedPodSecurity
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8srestrictedpodsecurity
+
+        # Deny privileged containers
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Pod"
+          c := input.review.object.spec.containers[_]
+          c.securityContext.privileged == true
+          msg := sprintf("Privileged containers are not allowed: %v", [c.name])
+        }
+
+        # Deny missing runAsNonRoot
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Pod"
+          c := input.review.object.spec.containers[_]
+          not c.securityContext.runAsNonRoot
+          msg := sprintf("Container %v must set runAsNonRoot: true", [c.name])
+        }
+
+        # Deny privilege escalation
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Pod"
+          c := input.review.object.spec.containers[_]
+          not c.securityContext.allowPrivilegeEscalation == false
+          msg := sprintf("Container %v must set allowPrivilegeEscalation: false", [c.name])
+        }
+
+        # Enforce readOnlyRootFilesystem
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Pod"
+          c := input.review.object.spec.containers[_]
+          not c.securityContext.readOnlyRootFilesystem
+          msg := sprintf("Container %v must use readOnlyRootFilesystem: true", [c.name])
+        }
+
+        # Enforce seccompProfile
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Pod"
+          c := input.review.object.spec.containers[_]
+          not c.securityContext.seccompProfile.type == "RuntimeDefault"
+          msg := sprintf("Container %v must use seccompProfile=RuntimeDefault", [c.name])
+        }
+
+        # Deny hostPath volumes
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Pod"
+          v := input.review.object.spec.volumes[_]
+          v.hostPath
+          msg := sprintf("hostPath volumes are not allowed: %v", [v.name])
+        }
+
+        # Deny hostNetwork
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Pod"
+          input.review.object.spec.hostNetwork == true
+          msg := "hostNetwork is not allowed"
+        }
+
+        # Deny hostPID
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Pod"
+          input.review.object.spec.hostPID == true
+          msg := "hostPID is not allowed"
+        }
+
+        # Deny hostIPC
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Pod"
+          input.review.object.spec.hostIPC == true
+          msg := "hostIPC is not allowed"
+        }

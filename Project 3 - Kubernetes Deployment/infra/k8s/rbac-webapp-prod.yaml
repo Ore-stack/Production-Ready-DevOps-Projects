@@ -1,0 +1,25 @@
+# RBAC for CI/CD Deployer ServiceAccount in webapp-prod namespace with necessary permissions for deployments.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: webapp-prod
+  name: deployer-role
+rules:
+  - apiGroups: ["", "apps", "extensions"]
+    resources: ["pods", "deployments", "services", "replicasets", "ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: deployer-rolebinding
+  namespace: webapp-prod
+subjects:
+  - kind: ServiceAccount
+    name: ci-cd-deployer
+    namespace: webapp-prod
+roleRef:
+  kind: Role
+  name: deployer-role
+  apiGroup: rbac.authorization.k8s.io

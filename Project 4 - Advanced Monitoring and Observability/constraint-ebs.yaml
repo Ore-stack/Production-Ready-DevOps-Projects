@@ -1,0 +1,13 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPPrivilegedExceptions
+metadata:
+  name: allow-ebs-csi
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces: ["kube-system"]
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: aws-ebs-csi-driver

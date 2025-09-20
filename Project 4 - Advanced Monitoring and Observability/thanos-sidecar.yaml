@@ -1,0 +1,22 @@
+# thanos-sidecar.yaml
+containers:
+- name: thanos-sidecar
+  image: thanosio/thanos:v0.25.0
+  args:
+  - sidecar
+  - --prometheus.url=http://localhost:9090
+  - --tsdb.path=/prometheus
+  - --objstore.config=$(OBJSTORE_CONFIG)
+  ports:
+  - containerPort: 10901
+    name: http
+  - containerPort: 10902
+    name: grpc
+  env:
+  - name: OBJSTORE_CONFIG
+    value: |
+      type: S3
+      config:
+        bucket: "my-prometheus-backup"
+        endpoint: "s3.us-east-1.amazonaws.com"
+        region: "us-east-1"

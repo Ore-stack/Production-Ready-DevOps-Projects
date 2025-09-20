@@ -1,0 +1,118 @@
+# Grafana dashboard ConfigMap for web application monitoring
+# This ConfigMap defines a Grafana dashboard with panels for monitoring HPA replica count,
+# certificate expiry, and Falco alert rates. It includes alerting rules for each panel.
+# Adjust the Prometheus expressions and alert thresholds as needed for your environment.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-webapp
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1" # Label for Grafana sidecar to detect dashboards
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: monitoring
+data:
+  webapp-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "My Web Application Dashboard",
+        "tags": ["webapp", "devops", "kubernetes"],
+        "timezone": "browser",
+        "refresh": "5s",
+        "schemaVersion": 30,
+        "version": 1,
+        "panels": [
+          {
+            "id": 4,
+            "title": "HPA Replica Count",
+            "type": "graph",
+            "description": "Shows the current number of replicas managed by the Horizontal Pod Autoscaler.",
+            "targets": [
+              { "expr": "kube_horizontalpodautoscaler_status_current_replicas", "refId": "A" }
+            ],
+            "alert": {
+              "name": "HPA Scaling Pressure",
+              "conditions": [
+                {
+                  "type": "query",
+                  "query": { "refId": "A" },
+                  "evaluator": { "type": "gt", "params": [10] },
+                  "operator": { "type": "and" },
+                  "reducer": { "type": "max" }
+                }
+              ],
+              "frequency": "60s",
+              "noDataState": "no_data",
+              "executionErrorState": "alerting"
+            },
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+          },
+          {
+            "id": 8,
+            "title": "Certificate Expiry (Days)",
+            "type": "graph",
+            "description": "Tracks how many days remain before TLS certificates expire.",
+            "targets": [
+              {
+                "expr": "(certmanager_certificate_expiration_timestamp_seconds - time()) / 86400",
+                "refId": "A"
+              }
+            ],
+            "alert": {
+              "name": "Certificate Expiry Warning",
+              "conditions": [
+                {
+                  "type": "query",
+                  "query": { "refId": "A" },
+                  "evaluator": { "type": "lt", "params": [7] },
+                  "operator": { "type": "and" },
+                  "reducer": { "type": "min" }
+                }
+              ],
+              "frequency": "60s",
+              "noDataState": "ok",
+              "executionErrorState": "alerting"
+            },
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+          },
+          {
+            "id": 9,
+            "title": "Falco Alert Rate",
+            "type": "graph",
+            "description": "Displays the rate of Falco security alerts.",
+            "targets": [
+              { "expr": "rate(falco_alerts_total[5m])", "refId": "A" }
+            ],
+            "alert": {
+              "name": "High Falco Alert Rate",
+              "conditions": [
+                {
+                  "type": "query",
+                  "query": { "refId": "A" },
+                  "evaluator": { "type": "gt", "params": [10] },
+                  "operator": { "type": "and" },
+                  "reducer": { "type": "avg" }
+                }
+              ],
+              "frequency": "60s",
+              "noDataState": "no_data",
+              "executionErrorState": "alerting"
+            },
+            "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 }
+          }
+        ]
+      }
+    }
+
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.monitoring.svc.cluster.local:9090
+        isDefault: true
+        editable: true
+        jsonData:
+          timeInterval: "5s"  

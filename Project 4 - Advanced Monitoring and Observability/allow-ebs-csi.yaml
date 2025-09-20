@@ -1,0 +1,11 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPAllow
+metadata:
+  name: allow-ebs-csi
+spec:
+  match:
+    namespaces:
+      - kube-system
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: aws-ebs-csi-driver

@@ -1,0 +1,114 @@
+# Grafana Configuration
+grafana:
+  # Enable Grafana
+  enabled: true
+  
+  # Dashboard ConfigMaps to import
+  dashboardsConfigMaps:
+    - grafana-dashboard-webapp
+  
+  # Additional configuration
+  persistence:
+    enabled: true
+    type: pvc
+    size: 10Gi
+  
+  # Grafana admin credentials
+  adminUser: admin
+  adminPassword: admin  # Change this in production!
+
+# Sidecar configuration for automatic dashboard discovery
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard  # The label key the sidecar will watch for
+    labelValue: "1"           # The label value the sidecar will watch for
+
+    # ConfigMap provider configuration
+    provider:
+      allowUiUpdates: false   # Set to true only if you understand the implications
+      foldersFromFilesStructure: true
+      type: configmap
+      watchMethod: configmap
+      searchNamespace: SAME   # Look for ConfigMaps in the same namespace as Grafana
+
+# Volumes configuration
+extraVolumes:
+  - name: dashboards-volume
+    emptyDir: {}
+  - name: configmaps-volume
+    configMap:
+      name: grafana-dashboard-webapp
+
+extraVolumeMounts:
+  - name: dashboards-volume
+    mountPath: /var/lib/grafana/dashboards  # Grafana will auto-load dashboards from here
+  - name: configmaps-volume
+    mountPath: /etc/grafana/provisioning/dashboards/configmaps
+
+# Additional Grafana configuration
+grafana.ini:
+  paths:
+    data: /var/lib/grafana/data
+    logs: /var/log/grafana
+    plugins: /var/lib/grafana/plugins
+    provisioning: /etc/grafana/provisioning
+  analytics:
+    check_for_updates: true
+  log:
+    mode: console
+    level: info
+  grafana_net:
+    url: https://grafana.net
+
+
+# Pod security context to enforce non-root execution
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Grafana container security
+grafana:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+
+# Sidecar container security
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    provider:
+      allowUiUpdates: false
+      foldersFromFilesStructure: true
+      type: configmap
+      watchMethod: configmap
+      searchNamespace: SAME
+  resources:
+    limits:
+      cpu: 100m
+      memory: 64Mi
+    requests:
+      cpu: 50m
+      memory: 32Mi
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]

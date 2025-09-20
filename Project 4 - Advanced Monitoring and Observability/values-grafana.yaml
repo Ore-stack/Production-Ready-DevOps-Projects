@@ -1,0 +1,93 @@
+replicaCount: 2
+
+image:
+  repository: grafana/grafana
+  tag: 12.1.1
+  pullPolicy: IfNotPresent
+
+# Pod-level security context (applies to all containers)
+securityContext:
+  runAsUser: 472
+  runAsGroup: 472
+  runAsNonRoot: true
+  fsGroup: 472
+
+# Container-level security context
+containerSecurityContext:
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+# Pod-level context (optional, mainly for FS permissions)
+podSecurityContext:
+  fsGroup: 472
+
+# Admin credentials via existing secret
+admin:
+  existingSecret: grafana-admin-secret
+
+# Enable persistence using EBS CSI driver
+persistence:
+  enabled: true
+  size: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp2-wffc
+  mountPath: /var/lib/grafana
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+ingress:
+  enabled: false
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 750Mi
+  requests:
+    cpu: 100m
+    memory: 512Mi
+
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  initialDelaySeconds: 60
+  timeoutSeconds: 30
+  periodSeconds: 10
+  failureThreshold: 10
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  initialDelaySeconds: 10
+  timeoutSeconds: 1
+  periodSeconds: 10
+  failureThreshold: 3
+
+rbac:
+  create: true
+  pspEnabled: false
+
+nodeSelector: {}
+tolerations: []
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: topology.ebs.csi.aws.com/zone
+              operator: In
+              values:
+                - us-east-1d
+                - us-east-1b

@@ -1,0 +1,20 @@
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8spspprivilegedexceptions
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sPSPPrivilegedExceptions
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8spspprivilegedexceptions
+
+        violation[{"msg": msg}] {
+          input.review.object.metadata.namespace != "kube-system"
+          input.review.object.metadata.labels["app"] != "ebs-csi-node"
+          input.review.object.metadata.labels["app"] != "ebs-csi-controller"
+          msg := "Pod violates PSP rules"
+        }

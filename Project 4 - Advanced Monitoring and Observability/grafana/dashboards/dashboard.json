@@ -1,0 +1,136 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "My Web Application Dashboard",
+    "tags": ["webapp", "devops", "kubernetes"],
+    "timezone": "browser",
+    "refresh": "5s",
+    "time": { "from": "now-1h", "to": "now" },
+    "schemaVersion": 30,
+    "version": 1,
+    "panels": [
+      {
+        "id": 1,
+        "title": "Application Status",
+        "type": "stat",
+        "description": "Shows whether the web application is currently UP or DOWN based on Prometheus 'up' metric. Useful for quick health checks.",
+        "targets": [
+          { "expr": "up{job=\"my-webapp-local\"}", "refId": "A" }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": { "text": "DOWN", "color": "red" },
+                  "1": { "text": "UP", "color": "green" }
+                }
+              }
+            ]
+          }
+        },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+      },
+      {
+        "id": 2,
+        "title": "HTTP Requests per Second",
+        "type": "graph",
+        "description": "Displays the rate of incoming HTTP requests to the application. Helps monitor traffic volume and detect spikes or drops.",
+        "targets": [
+          { "expr": "rate(http_requests_total[5m])", "refId": "A" }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+      },
+      {
+        "id": 3,
+        "title": "Response Time (95th percentile)",
+        "type": "graph",
+        "description": "Tracks the 95th percentile of HTTP response times. Useful for identifying latency issues affecting user experience.",
+        "targets": [
+          { "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))", "refId": "A" }
+        ],
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 }
+      },
+      {
+        "id": 4,
+        "title": "HPA Replica Count",
+        "type": "graph",
+        "description": "Shows the current number of replicas managed by the Horizontal Pod Autoscaler. Indicates how the application scales under load.",
+        "targets": [
+          { "expr": "kube_horizontalpodautoscaler_status_current_replicas", "refId": "A" }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+      },
+      {
+        "id": 5,
+        "title": "Ingress Request Rate",
+        "type": "graph",
+        "description": "Monitors the number of requests handled by the Ingress controller (NGINX or ALB). Useful for understanding external traffic patterns.",
+        "targets": [
+          { "expr": "rate(nginx_ingress_controller_requests[5m])", "refId": "A" }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+      },
+      {
+        "id": 6,
+        "title": "Istio Request Duration (95th percentile)",
+        "type": "graph",
+        "description": "Displays the 95th percentile of request durations across Istio-managed services. Helps diagnose service mesh latency.",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(istio_request_duration_seconds_bucket[5m])) by (le, destination_workload))",
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 }
+      },
+      {
+        "id": 7,
+        "title": "ArgoCD App Sync Status",
+        "type": "stat",
+        "description": "Shows whether ArgoCD-managed applications are in sync with their Git repositories. Critical for GitOps workflows.",
+        "targets": [
+          { "expr": "count(argocd_app_info{sync_status=\"Synced\"})", "refId": "A" }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": { "text": "Out of Sync", "color": "red" },
+                  "1": { "text": "Synced", "color": "green" }
+                }
+              }
+            ]
+          }
+        },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 }
+      },
+      {
+        "id": 8,
+        "title": "Certificate Expiry (Days)",
+        "type": "graph",
+        "description": "Tracks how many days remain before TLS certificates expire. Helps prevent outages due to expired certs (via Cert Manager).",
+        "targets": [
+          {
+            "expr": "(certmanager_certificate_expiration_timestamp_seconds - time()) / 86400",
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 }
+      },
+      {
+        "id": 9,
+        "title": "Falco Alert Rate",
+        "type": "graph",
+        "description": "Displays the rate of Falco security alerts. Useful for detecting suspicious activity or policy violations in the cluster.",
+        "targets": [
+          { "expr": "rate(falco_alerts_total[5m])", "refId": "A" }
+        ],
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 40 }
+      }
+    ]
+  }
+}

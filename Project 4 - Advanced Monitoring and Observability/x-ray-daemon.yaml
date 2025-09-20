@@ -1,0 +1,20 @@
+# x-ray-daemon.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: x-ray-daemon
+  namespace: monitoring
+spec:
+  template:
+    spec:
+      containers:
+      - name: x-ray-daemon
+        image: amazon/aws-xray-daemon:3.3.0
+        ports:
+        - containerPort: 2000
+          protocol: UDP
+        - containerPort: 2000
+          protocol: TCP
+        env:
+        - name: AWS_REGION
+          value: us-east-1

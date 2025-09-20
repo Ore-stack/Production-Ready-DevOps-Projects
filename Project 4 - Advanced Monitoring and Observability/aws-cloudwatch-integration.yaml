@@ -1,0 +1,51 @@
+# Optional: CloudWatch integration for AWS resources
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudwatch-exporter-config
+  namespace: monitoring
+  labels:
+    app: cloudwatch-exporter
+data:
+  config.yml: |
+    region: us-east-1
+    metrics:
+      - aws_namespace: AWS/ECS
+        aws_metric_name: CPUUtilization
+        aws_dimensions: [ServiceName, ClusterName]
+        aws_statistics: [Average]
+      - aws_namespace: AWS/ECS
+        aws_metric_name: MemoryUtilization
+        aws_dimensions: [ServiceName, ClusterName]
+        aws_statistics: [Average]
+      - aws_namespace: AWS/ApplicationELB
+        aws_metric_name: RequestCount
+        aws_dimensions: [LoadBalancer]
+        aws_statistics: [Sum]
+
+---
+# cloudwatch-exporter.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudwatch-exporter
+  namespace: monitoring
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: cloudwatch-exporter
+        image: prom/cloudwatch-exporter:v0.15.0
+        args:
+        - --config.file=/etc/config/config.yml
+        ports:
+        - containerPort: 9106
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+      volumes:
+      - name: config-volume
+        configMap:
+          name: cloudwatch-exporter-config

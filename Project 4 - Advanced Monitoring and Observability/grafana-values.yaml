@@ -1,0 +1,31 @@
+# grafana-values.yaml
+
+# Pod-level settings
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 472       # grafana UID in container
+  runAsGroup: 472
+  fsGroup: 472
+
+# Container-level settings
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 472
+  runAsGroup: 472
+  seccompProfile:
+    type: RuntimeDefault
+
+# Init container fix (for chown of data dir)
+initChownData:
+  enabled: true
+  securityContext:
+    runAsUser: 0
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault

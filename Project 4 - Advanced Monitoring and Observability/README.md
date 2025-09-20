@@ -8,6 +8,7 @@ This project demonstrates a production-grade monitoring and observability stack 
 
 ## 🏗️ Architecture
 
+```mermaid
 graph TB
     subgraph AWS_Cloud
         subgraph VPC
@@ -57,6 +58,7 @@ graph TB
     class VPC,AWS_Services aws;
     class EKS_Cluster,Monitoring_Namespace k8s;
     class S3,RDS,ECR,SNS service;
+```
 
 ## 📋 Prerequisites
 

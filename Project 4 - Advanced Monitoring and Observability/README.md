@@ -88,6 +88,26 @@ sudo mv /tmp/eksctl /usr/local/bin
 - EKS cluster running in your desired region
 - VPC with public and private subnets
 
+### Minimal Project Folder Structure
+```
+Project4-Advanced-Monitoring/
+│
+├── helm-chart/                  # Optional, if you have a local Helm chart
+│
+├── values-grafana.yaml          # Helm values for Grafana deployment
+├── grafana-values.yaml          # Optional, if used as alternate values file
+├── grafana-pvc.yaml             # Optional: pre-created PVC (Helm can also create it)
+├── gp2-immediate-sc.yaml        # StorageClass for EBS volumes
+├── gp2-wffc-sc.yaml             # Alternative StorageClass (optional)
+│
+├── pdb-grafana.yaml             # PodDisruptionBudget for Grafana
+├── dashboard-configmap.yaml     # Grafana dashboards configuration
+├── networkpolicy-grafana.yaml   # Optional: control network access to Grafana
+├── prometheus-rules.yaml        # Optional: Prometheus alerting rules
+│
+└── README.md                    # Project documentation, setup guide, troubleshooting
+```
+
 ## 🚀 Quick Start Deployment
 
 ### 1. Create Monitoring Namespace

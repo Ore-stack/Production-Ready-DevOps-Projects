@@ -16,19 +16,16 @@ graph TB
                 LB[Application Load Balancer]
                 NG[NAT Gateway]
             end
-            
             subgraph Private Subnets
                 subgraph EKS Cluster
                     subgraph Node Group - us-east-1a
                         N1[Worker Node 1]
                         N2[Worker Node 2]
                     end
-                    
                     subgraph Node Group - us-east-1b
                         N3[Worker Node 3]
                         N4[Worker Node 4]
                     end
-                    
                     subgraph Monitoring Namespace
                         G[Grafana Pod]
                         P[Prometheus Pod]
@@ -37,14 +34,12 @@ graph TB
                 end
             end
         end
-        
         subgraph AWS Services
             S3[(S3 Bucket<br/>Dashboard Backups)]
             RDS[(RDS<br/>Grafana Database)]
             ECR[ECR Registry<br/>Container Images]
         end
     end
-    
     User[End User] --> LB
     LB --> N1
     LB --> N3
@@ -54,7 +49,6 @@ graph TB
     G --> S3
     P --> A
     A --> SNS[SNS Notifications]
-    
     classDef aws fill:#ff9900,color:#000;
     classDef k8s fill:#326ce5,color:#fff;
     classDef service fill:#8c5fff,color:#fff;

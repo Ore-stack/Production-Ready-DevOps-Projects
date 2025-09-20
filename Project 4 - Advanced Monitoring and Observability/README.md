@@ -8,24 +8,25 @@ This project demonstrates a production-grade monitoring and observability stack 
 
 ## 🏗️ Architecture
 
+```mermaid
 graph TB
-    subgraph AWS_Cloud
+    subgraph AWS Cloud
         subgraph VPC
-            subgraph Public_Subnets
+            subgraph Public Subnets
                 LB[Application Load Balancer]
                 NG[NAT Gateway]
             end
-            subgraph Private_Subnets
-                subgraph EKS_Cluster
-                    subgraph Node_Group_us_east_1a
+            subgraph Private Subnets
+                subgraph EKS Cluster
+                    subgraph Node Group - us-east-1a
                         N1[Worker Node 1]
                         N2[Worker Node 2]
                     end
-                    subgraph Node_Group_us_east_1b
+                    subgraph Node Group - us-east-1b
                         N3[Worker Node 3]
                         N4[Worker Node 4]
                     end
-                    subgraph Monitoring_Namespace
+                    subgraph Monitoring Namespace
                         G[Grafana Pod]
                         P[Prometheus Pod]
                         A[Alertmanager Pod]
@@ -33,10 +34,10 @@ graph TB
                 end
             end
         end
-        subgraph AWS_Services
-            S3[(S3 Bucket Dashboard Backups)]
-            RDS[(RDS Grafana Database)]
-            ECR[ECR Registry Container Images]
+        subgraph AWS Services
+            S3[(S3 Bucket<br/>Dashboard Backups)]
+            RDS[(RDS<br/>Grafana Database)]
+            ECR[ECR Registry<br/>Container Images]
         end
     end
     User[End User] --> LB
@@ -48,14 +49,13 @@ graph TB
     G --> S3
     P --> A
     A --> SNS[SNS Notifications]
-
     classDef aws fill:#ff9900,color:#000;
     classDef k8s fill:#326ce5,color:#fff;
     classDef service fill:#8c5fff,color:#fff;
-
-    class VPC,AWS_Services aws;
-    class EKS_Cluster,Monitoring_Namespace k8s;
+    class VPC,AWS Services aws;
+    class EKS Cluster,Monitoring Namespace k8s;
     class S3,RDS,ECR,SNS service;
+```
 
 ## 📋 Prerequisites
 

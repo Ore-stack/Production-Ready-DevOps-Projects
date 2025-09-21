@@ -1,0 +1,44 @@
+# Correct image for kube-state-metrics
+image:
+  repository: registry.k8s.io/kube-state-metrics/kube-state-metrics
+  tag: v2.17.0
+  pullPolicy: IfNotPresent
+
+# Security context to satisfy Gatekeeper's restricted policy
+securityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# Resource requests/limits for stability
+resources:
+  requests:
+    cpu: 100m
+    memory: 200Mi
+  limits:
+    cpu: 500m
+    memory: 750Mi
+
+# Service configuration
+service:
+  port: 8080
+  targetPort: 8080
+  type: ClusterIP
+
+# Prometheus scrape annotations
+prometheus:
+  monitor:
+    enabled: true
+    additionalLabels: {}
+    namespace: monitoring
+    interval: 30s
+    scrapeTimeout: 10s
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Service account
+serviceAccount:
+  create: true
+  name: kube-state-metrics

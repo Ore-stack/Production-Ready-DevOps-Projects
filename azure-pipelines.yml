@@ -14,6 +14,10 @@ pr:
       - 'Project 2 - CI-CD Pipeline/*'
 
 parameters:
+  - name: deployProduction
+    displayName: Also deploy to Production (after Staging succeeds)
+    type: boolean
+    default: false
   - name: enableCodeQL
     displayName: Run CodeQL (requires GitHub Advanced Security for Azure DevOps)
     type: boolean
@@ -54,7 +58,7 @@ resources:
         --health-retries 5
 
 stages:
-  # ======================= STAGE 1: Test =======================
+  # ======================= Test =======================
   - stage: Test
     displayName: '🧪 Test Application'
     jobs:
@@ -83,7 +87,6 @@ stages:
           - script: |
               sudo apt-get update
               sudo apt-get install -y postgresql-client
-              echo "✅ PostgreSQL client installed"
             displayName: '🐘 Install PostgreSQL client'
 
           - script: npm ci --audit false
@@ -107,7 +110,6 @@ stages:
                 );
                 INSERT INTO app_status (status) VALUES ('initialized');
               "
-              echo "✅ Database initialized with test schema!"
             displayName: '🛠️ Initialize database'
             env:
               PGPASSWORD: test_password
@@ -123,9 +125,7 @@ stages:
               NODE_ENV: test
               DATABASE_URL: postgres://test_user:test_password@localhost:5432/test_database
 
-          - script: |
-              docker build -t test-build .
-              echo "✅ Docker build successful!"
+          - script: docker build -t test-build .
             displayName: '🐳 Test Docker build'
             workingDirectory: $(PROJECT_DIR)
 
@@ -146,26 +146,23 @@ stages:
               - task: AdvancedSecurity-Codeql-Analyze@1
                 displayName: '🔎 Perform CodeQL Analysis'
 
-  # ================== STAGE 2: Security scan ===================
+  # ================== Security scan ===================
   - stage: SecurityScan
     displayName: '🔒 Security Scanning'
     dependsOn: Test
-    condition: succeeded()
     jobs:
       - job: Trivy
         displayName: 'Trivy image scan'
         steps:
           - checkout: self
 
-          - script: |
-              docker build -t my-webapp:latest .
+          - script: docker build -t my-webapp:latest .
             displayName: '🐳 Build Docker image'
             workingDirectory: $(PROJECT_DIR)
 
           - script: |
               curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
                 | sudo sh -s -- -b /usr/local/bin
-              trivy --version
             displayName: '🔧 Install Trivy'
 
           - script: |
@@ -184,258 +181,158 @@ stages:
               artifact: trivy-scan-results
 
           - script: |
-              echo "📊 Vulnerability Scan Summary"
-              trivy image --severity "$(TRIVY_SEVERITY)" --ignore-unfixed my-webapp:latest || true
-            displayName: '📋 Display scan summary'
-
-          - script: |
               trivy image --severity "$(TRIVY_SEVERITY)" --exit-code 1 \
                 --ignore-unfixed --vuln-type os,library --quiet my-webapp:latest
             displayName: '❌ Fail if CRITICAL/HIGH vulnerabilities found'
 
-  # ====================== STAGE 3: Deploy ======================
-  - stage: Deploy
-    displayName: '🚀 Deploy to Production'
+  # ============ Build once, scan, push to ECR ============
+  - stage: BuildPush
+    displayName: '📦 Build and Push Image'
     dependsOn:
       - Test
       - SecurityScan
     condition: >-
       and(
-        succeeded('Test'),
-        succeeded('SecurityScan'),
+        succeeded(),
         eq(variables['Build.SourceBranch'], 'refs/heads/main'),
         ne(variables['Build.Reason'], 'PullRequest')
       )
     jobs:
-      - deployment: Deploy
-        displayName: 'Deploy to ECS'
-        environment: production
+      - job: BuildPush
+        displayName: 'Build, scan and push'
         timeoutInMinutes: 20
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - checkout: self
-                  fetchDepth: 0
-
-                - task: AWSShellScript@1
-                  displayName: '📋 Verify AWS access'
-                  inputs:
-                    awsCredentials: $(AWS_SERVICE_CONNECTION)
-                    regionName: $(AWS_REGION)
-                    scriptType: inline
-                    inlineScript: |
-                      aws sts get-caller-identity
-                      echo "✅ AWS credentials verified"
-
-                - task: AWSShellScript@1
-                  displayName: '🔐 Login to Amazon ECR'
-                  inputs:
-                    awsCredentials: $(AWS_SERVICE_CONNECTION)
-                    regionName: $(AWS_REGION)
-                    scriptType: inline
-                    inlineScript: |
-                      ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-                      REGISTRY="${ACCOUNT_ID}.dkr.ecr.$(AWS_REGION).amazonaws.com"
-                      aws ecr get-login-password --region $(AWS_REGION) \
-                        | docker login --username AWS --password-stdin "$REGISTRY"
-                      echo "##vso[task.setvariable variable=ECR_REGISTRY]$REGISTRY"
-
-                - script: |
-                    IMAGE_TAG=$(Build.SourceVersion)
-                    docker build \
-                      --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-                      --label "org.opencontainers.image.revision=$(Build.SourceVersion)" \
-                      --label "org.opencontainers.image.source=$(Build.Repository.Uri)" \
-                      -t $(ECR_REGISTRY)/$(ECR_REPOSITORY):$IMAGE_TAG \
-                      -t $(ECR_REGISTRY)/$(ECR_REPOSITORY):latest \
-                      .
-                    echo "##vso[task.setvariable variable=IMAGE_URI]$(ECR_REGISTRY)/$(ECR_REPOSITORY):$IMAGE_TAG"
-                    echo "✅ Docker image built successfully"
-                  displayName: '🐳 Build Docker image'
-                  workingDirectory: $(PROJECT_DIR)
-
-                - script: |
-                    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-                      | sudo sh -s -- -b /usr/local/bin
-                    trivy image --format table --severity "$(TRIVY_SEVERITY)" --exit-code 1 \
-                      --ignore-unfixed --vuln-type os,library "$(IMAGE_URI)"
-                  displayName: '🔍 Scan production image with Trivy'
-
-                - task: AWSShellScript@1
-                  displayName: '📤 Push image to ECR'
-                  inputs:
-                    awsCredentials: $(AWS_SERVICE_CONNECTION)
-                    regionName: $(AWS_REGION)
-                    scriptType: inline
-                    inlineScript: |
-                      docker push $(ECR_REGISTRY)/$(ECR_REPOSITORY):$(Build.SourceVersion)
-                      docker push $(ECR_REGISTRY)/$(ECR_REPOSITORY):latest
-                      echo "✅ Images pushed to ECR"
-
-                - task: AWSShellScript@1
-                  displayName: '📝 Render, register and deploy task definition'
-                  inputs:
-                    awsCredentials: $(AWS_SERVICE_CONNECTION)
-                    regionName: $(AWS_REGION)
-                    scriptType: inline
-                    inlineScript: |
-                      set -euo pipefail
-
-                      aws ecs describe-task-definition \
-                        --task-definition "$(ECS_TASK_DEFINITION)" \
-                        --query taskDefinition > task-definition.json
-                      [ -s task-definition.json ] || { echo "❌ Failed to download task definition"; exit 1; }
-
-                      jq --arg NAME "$(CONTAINER_NAME)" --arg IMAGE "$(IMAGE_URI)" '
-                        .containerDefinitions |= map(if .name == $NAME then .image = $IMAGE else . end)
-                        | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
-                              .compatibilities, .registeredAt, .registeredBy)
-                      ' task-definition.json > rendered-task-definition.json
-
-                      NEW_ARN=$(aws ecs register-task-definition \
-                        --cli-input-json file://rendered-task-definition.json \
-                        --query taskDefinition.taskDefinitionArn --output text)
-                      echo "✅ Registered $NEW_ARN"
-
-                      aws ecs update-service \
-                        --cluster "$(ECS_CLUSTER)" \
-                        --service "$(ECS_SERVICE)" \
-                        --task-definition "$NEW_ARN" > /dev/null
-                      echo "🚀 Service update submitted"
-
-                - task: AWSShellScript@1
-                  displayName: '⏳ Wait for service stabilization'
-                  timeoutInMinutes: 12
-                  inputs:
-                    awsCredentials: $(AWS_SERVICE_CONNECTION)
-                    regionName: $(AWS_REGION)
-                    scriptType: inline
-                    inlineScript: |
-                      aws ecs wait services-stable \
-                        --cluster "$(ECS_CLUSTER)" --services "$(ECS_SERVICE)"
-                      echo "✅ Service is stable"
-
-                - task: AWSShellScript@1
-                  displayName: '🌐 Get application URL'
-                  inputs:
-                    awsCredentials: $(AWS_SERVICE_CONNECTION)
-                    regionName: $(AWS_REGION)
-                    scriptType: inline
-                    inlineScript: |
-                      set -euo pipefail
-                      TASK_ARN=$(aws ecs list-tasks --cluster "$(ECS_CLUSTER)" \
-                        --service-name "$(ECS_SERVICE)" --query 'taskArns[0]' --output text)
-                      if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
-                        echo "❌ No running tasks found"; exit 1
-                      fi
-
-                      ENI=$(aws ecs describe-tasks --cluster "$(ECS_CLUSTER)" --tasks "$TASK_ARN" \
-                        --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
-                        --output text)
-                      [ -n "$ENI" ] || { echo "❌ Could not get network interface"; exit 1; }
-
-                      PUBLIC_IP=$(aws ec2 describe-network-interfaces --network-interface-ids "$ENI" \
-                        --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
-                      if [ -z "$PUBLIC_IP" ] || [ "$PUBLIC_IP" = "None" ]; then
-                        echo "❌ Could not get public IP"; exit 1
-                      fi
-
-                      echo "##vso[task.setvariable variable=PUBLIC_IP]$PUBLIC_IP"
-                      echo "##vso[task.setvariable variable=APPLICATION_URL]http://$PUBLIC_IP:$(CONTAINER_PORT)"
-                      echo "✅ Application URL determined"
-
-                - script: |
-                    cat > $(Agent.TempDirectory)/summary.md <<EOF
-                    # 🚀 Deployment Successful!
-
-                    ## 🔒 Security Scan Passed
-                    ✅ Docker image scanned with Trivy - no critical/high vulnerabilities found
-
-                    ## 📊 Deployment Details
-                    - **Repository**: $(Build.Repository.Name)
-                    - **Commit**: $(Build.SourceVersion)
-                    - **Deployed by**: $(Build.RequestedFor)
-                    - **Timestamp**: $(date -u)
-
-                    ## 🌐 Application URLs
-                    - **Main Application**: $(APPLICATION_URL)
-                    - **Health Check**: $(APPLICATION_URL)/health
-                    - **API Info**: $(APPLICATION_URL)/api/info
-
-                    ## 🔗 AWS Console Links
-                    - **ECS Service**: https://console.aws.amazon.com/ecs/home?region=$(AWS_REGION)#/clusters/$(ECS_CLUSTER)/services/$(ECS_SERVICE)
-                    - **ECR Repository**: https://console.aws.amazon.com/ecr/repositories/private/$(AWS_REGION)/$(ECR_REPOSITORY)?region=$(AWS_REGION)
-                    EOF
-                    echo "##vso[task.uploadsummary]$(Agent.TempDirectory)/summary.md"
-                  displayName: '📋 Create deployment summary'
-
-  # =================== STAGE 4: Cleanup on failure ===================
-  - stage: Cleanup
-    displayName: '🧹 Cleanup (on failure)'
-    dependsOn:
-      - Test
-      - SecurityScan
-      - Deploy
-    condition: >-
-      and(
-        always(),
-        eq(variables['Build.SourceBranch'], 'refs/heads/main'),
-        or(
-          eq(dependencies.Test.result, 'Failed'),
-          eq(dependencies.SecurityScan.result, 'Failed'),
-          eq(dependencies.Deploy.result, 'Failed')
-        )
-      )
-    variables:
-      deployResult: $[ stageDependencies.Deploy.Deploy.result ]
-    jobs:
-      - job: Cleanup
-        displayName: 'Cleanup'
         steps:
-          - checkout: none
+          - checkout: self
 
           - task: AWSShellScript@1
-            displayName: '📋 Log info and clean up'
+            displayName: '🔐 Login to Amazon ECR'
             inputs:
               awsCredentials: $(AWS_SERVICE_CONNECTION)
               regionName: $(AWS_REGION)
               scriptType: inline
               inlineScript: |
-                echo "🧹 Cleanup triggered due to failed pipeline"
-                docker system prune -f --filter "until=24h" || echo "Docker cleanup failed"
+                ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+                REGISTRY="${ACCOUNT_ID}.dkr.ecr.$(AWS_REGION).amazonaws.com"
+                aws ecr get-login-password --region $(AWS_REGION) \
+                  | docker login --username AWS --password-stdin "$REGISTRY"
+                echo "##vso[task.setvariable variable=ECR_REGISTRY]$REGISTRY"
 
-                if [ "$(deployResult)" = "Failed" ]; then
-                  TAGS=$(aws ecr list-images \
-                    --repository-name "$(ECR_REPOSITORY)" \
-                    --filter tagStatus=TAGGED \
-                    --query "imageIds[?contains(imageTag, '$(Build.SourceVersion)')].imageTag" \
-                    --output text)
-                  if [ -n "$TAGS" ]; then
-                    for TAG in $TAGS; do
-                      echo "Deleting image with tag: $TAG"
-                      aws ecr batch-delete-image --repository-name "$(ECR_REPOSITORY)" \
-                        --image-ids imageTag=$TAG || echo "Failed to delete image: $TAG"
-                    done
-                  else
-                    echo "No recent images found for cleanup"
-                  fi
-                fi
+          - script: |
+              IMAGE_TAG=$(Build.SourceVersion)
+              docker build \
+                --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+                --label "org.opencontainers.image.revision=$(Build.SourceVersion)" \
+                --label "org.opencontainers.image.source=$(Build.Repository.Uri)" \
+                -t $(ECR_REGISTRY)/$(ECR_REPOSITORY):$IMAGE_TAG \
+                -t $(ECR_REGISTRY)/$(ECR_REPOSITORY):latest \
+                .
+              echo "##vso[task.setvariable variable=IMAGE_URI]$(ECR_REGISTRY)/$(ECR_REPOSITORY):$IMAGE_TAG"
+            displayName: '🐳 Build Docker image'
+            workingDirectory: $(PROJECT_DIR)
 
-  # =================== STAGE 5: Email notification ===================
+          - script: |
+              curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+                | sudo sh -s -- -b /usr/local/bin
+              trivy image --format table --severity "$(TRIVY_SEVERITY)" --exit-code 1 \
+                --ignore-unfixed --vuln-type os,library "$(IMAGE_URI)"
+            displayName: '🔍 Scan production image with Trivy'
+
+          - task: AWSShellScript@1
+            displayName: '📤 Push image to ECR'
+            inputs:
+              awsCredentials: $(AWS_SERVICE_CONNECTION)
+              regionName: $(AWS_REGION)
+              scriptType: inline
+              inlineScript: |
+                docker push $(ECR_REGISTRY)/$(ECR_REPOSITORY):$(Build.SourceVersion)
+                docker push $(ECR_REGISTRY)/$(ECR_REPOSITORY):latest
+                echo "✅ Images pushed to ECR"
+
+  # ================= Deploy: Test =================
+  - template: templates/deploy-stage.yml
+    parameters:
+      stageName: DeployTest
+      displayName: '🚀 Deploy to Test'
+      environment: test
+      dependsOn:
+        - BuildPush
+      ecsService: webapp-test-service
+      taskDefinition: webapp-test-task
+
+  # ================= Deploy: Staging =================
+  - template: templates/deploy-stage.yml
+    parameters:
+      stageName: DeployStaging
+      displayName: '🚀 Deploy to Staging'
+      environment: staging
+      dependsOn:
+        - DeployTest
+      ecsService: webapp-staging-service
+      taskDefinition: webapp-staging-task
+
+  # ================= Deploy: Production (off by default) =================
+  - ${{ if eq(parameters.deployProduction, true) }}:
+      - template: templates/deploy-stage.yml
+        parameters:
+          stageName: DeployProduction
+          displayName: '🚀 Deploy to Production'
+          environment: production
+          dependsOn:
+            - DeployStaging
+          ecsService: $(ECS_SERVICE)
+          taskDefinition: $(ECS_TASK_DEFINITION)
+
+  # ============ Cleanup if the image push fails ============
+  - stage: Cleanup
+    displayName: '🧹 Cleanup (on failure)'
+    dependsOn: BuildPush
+    condition: and(always(), eq(dependencies.BuildPush.result, 'Failed'))
+    jobs:
+      - job: Cleanup
+        displayName: 'Remove partially pushed image'
+        steps:
+          - checkout: none
+          - task: AWSShellScript@1
+            displayName: '🗑️ Delete image tagged with this commit'
+            inputs:
+              awsCredentials: $(AWS_SERVICE_CONNECTION)
+              regionName: $(AWS_REGION)
+              scriptType: inline
+              inlineScript: |
+                aws ecr batch-delete-image --repository-name "$(ECR_REPOSITORY)" \
+                  --image-ids imageTag=$(Build.SourceVersion) \
+                  || echo "Nothing to delete"
+
+  # ================= Email notification =================
   - stage: Notify
     displayName: '📧 Send Email Notification'
     dependsOn:
       - Test
       - SecurityScan
-      - Deploy
+      - BuildPush
+      - DeployTest
+      - DeployStaging
+      - ${{ if eq(parameters.deployProduction, true) }}:
+          - DeployProduction
       - Cleanup
     condition: always()
     variables:
-      testResult: $[ stageDependencies.Test.Test.result ]
-      scanResult: $[ stageDependencies.SecurityScan.Trivy.result ]
-      deployResult: $[ stageDependencies.Deploy.Deploy.result ]
-      cleanupResult: $[ stageDependencies.Cleanup.Cleanup.result ]
+      - name: testResult
+        value: $[ stageDependencies.Test.Test.result ]
+      - name: scanResult
+        value: $[ stageDependencies.SecurityScan.Trivy.result ]
+      - name: buildResult
+        value: $[ stageDependencies.BuildPush.BuildPush.result ]
+      - name: deployTestResult
+        value: $[ stageDependencies.DeployTest.Deploy.result ]
+      - name: deployStagingResult
+        value: $[ stageDependencies.DeployStaging.Deploy.result ]
+      - ${{ if eq(parameters.deployProduction, true) }}:
+          - name: deployProdResult
+            value: $[ stageDependencies.DeployProduction.Deploy.result ]
+      - ${{ if ne(parameters.deployProduction, true) }}:
+          - name: deployProdResult
+            value: 'not requested'
     jobs:
       - job: Notify
         displayName: 'Send email'
@@ -447,19 +344,17 @@ stages:
               To: $(NOTIFICATION_EMAIL)
               Subject: Azure Pipelines: $(Build.DefinitionName) ($(Build.Repository.Name))
 
-              Azure Pipelines Result
-              ======================
               Repository:   $(Build.Repository.Name)
-              Pipeline:     $(Build.DefinitionName)
               Triggered by: $(Build.RequestedFor)
-              Build ID:     $(Build.BuildId)
               Commit:       $(Build.SourceVersion)
 
-              Jobs Status:
-              - Test:          $(testResult)
-              - Security Scan: $(scanResult)
-              - Deploy:        $(deployResult)
-              - Cleanup:       $(cleanupResult)
+              Stage results:
+              - Test:           $(testResult)
+              - Security scan:  $(scanResult)
+              - Build + push:   $(buildResult)
+              - Deploy Test:    $(deployTestResult)
+              - Deploy Staging: $(deployStagingResult)
+              - Production:     $(deployProdResult)
 
               View details: $(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)
               EOF

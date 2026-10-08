@@ -1,0 +1,132 @@
+# templates/deploy-stage.yml
+# Deploys an already-pushed image (tagged with the commit SHA) to one ECS service.
+
+parameters:
+  - name: stageName
+    type: string
+  - name: displayName
+    type: string
+  - name: environment      # Azure DevOps environment name (approvals live here)
+    type: string
+  - name: dependsOn
+    type: object
+    default: []
+  - name: ecsService
+    type: string
+  - name: taskDefinition
+    type: string
+
+stages:
+  - stage: ${{ parameters.stageName }}
+    displayName: ${{ parameters.displayName }}
+    dependsOn: ${{ parameters.dependsOn }}
+    jobs:
+      - deployment: Deploy
+        displayName: 'Deploy to ${{ parameters.environment }}'
+        environment: ${{ parameters.environment }}
+        timeoutInMinutes: 20
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AWSShellScript@1
+                  displayName: '📋 Verify AWS access and image'
+                  inputs:
+                    awsCredentials: $(AWS_SERVICE_CONNECTION)
+                    regionName: $(AWS_REGION)
+                    scriptType: inline
+                    inlineScript: |
+                      set -euo pipefail
+                      aws sts get-caller-identity
+                      aws ecr describe-images --repository-name "$(ECR_REPOSITORY)" \
+                        --image-ids imageTag=$(Build.SourceVersion) > /dev/null
+                      echo "✅ AWS access OK and image $(Build.SourceVersion) exists in ECR"
+
+                - task: AWSShellScript@1
+                  displayName: '📝 Render, register and deploy task definition'
+                  inputs:
+                    awsCredentials: $(AWS_SERVICE_CONNECTION)
+                    regionName: $(AWS_REGION)
+                    scriptType: inline
+                    inlineScript: |
+                      set -euo pipefail
+                      ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+                      IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPOSITORY):$(Build.SourceVersion)"
+                      echo "Deploying $IMAGE_URI to ${{ parameters.environment }}"
+
+                      aws ecs describe-task-definition \
+                        --task-definition "${{ parameters.taskDefinition }}" \
+                        --query taskDefinition > task-definition.json
+                      [ -s task-definition.json ] || { echo "❌ Failed to download task definition"; exit 1; }
+
+                      jq --arg NAME "$(CONTAINER_NAME)" --arg IMAGE "$IMAGE_URI" '
+                        .containerDefinitions |= map(if .name == $NAME then .image = $IMAGE else . end)
+                        | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                              .compatibilities, .registeredAt, .registeredBy)
+                      ' task-definition.json > rendered-task-definition.json
+
+                      NEW_ARN=$(aws ecs register-task-definition \
+                        --cli-input-json file://rendered-task-definition.json \
+                        --query taskDefinition.taskDefinitionArn --output text)
+                      echo "✅ Registered $NEW_ARN"
+
+                      aws ecs update-service \
+                        --cluster "$(ECS_CLUSTER)" \
+                        --service "${{ parameters.ecsService }}" \
+                        --task-definition "$NEW_ARN" > /dev/null
+                      echo "🚀 Service update submitted"
+
+                - task: AWSShellScript@1
+                  displayName: '⏳ Wait for service stabilization'
+                  timeoutInMinutes: 12
+                  inputs:
+                    awsCredentials: $(AWS_SERVICE_CONNECTION)
+                    regionName: $(AWS_REGION)
+                    scriptType: inline
+                    inlineScript: |
+                      aws ecs wait services-stable \
+                        --cluster "$(ECS_CLUSTER)" --services "${{ parameters.ecsService }}"
+                      echo "✅ Service is stable"
+
+                - task: AWSShellScript@1
+                  displayName: '🌐 Get application URL'
+                  inputs:
+                    awsCredentials: $(AWS_SERVICE_CONNECTION)
+                    regionName: $(AWS_REGION)
+                    scriptType: inline
+                    inlineScript: |
+                      set -euo pipefail
+                      TASK_ARN=$(aws ecs list-tasks --cluster "$(ECS_CLUSTER)" \
+                        --service-name "${{ parameters.ecsService }}" \
+                        --query 'taskArns[0]' --output text)
+                      if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
+                        echo "❌ No running tasks found"; exit 1
+                      fi
+
+                      ENI=$(aws ecs describe-tasks --cluster "$(ECS_CLUSTER)" --tasks "$TASK_ARN" \
+                        --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
+                        --output text)
+                      [ -n "$ENI" ] || { echo "❌ Could not get network interface"; exit 1; }
+
+                      PUBLIC_IP=$(aws ec2 describe-network-interfaces --network-interface-ids "$ENI" \
+                        --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
+                      if [ -z "$PUBLIC_IP" ] || [ "$PUBLIC_IP" = "None" ]; then
+                        echo "❌ Could not get public IP"; exit 1
+                      fi
+
+                      echo "##vso[task.setvariable variable=APPLICATION_URL]http://$PUBLIC_IP:$(CONTAINER_PORT)"
+                      echo "✅ Application URL determined"
+
+                - script: |
+                    cat > $(Agent.TempDirectory)/summary.md <<EOF
+                    # 🚀 Deployed to ${{ parameters.environment }}
+
+                    - **Commit**: $(Build.SourceVersion)
+                    - **Deployed by**: $(Build.RequestedFor)
+                    - **Service**: ${{ parameters.ecsService }}
+                    - **Application**: $(APPLICATION_URL)
+                    - **Health check**: $(APPLICATION_URL)/health
+                    - **API info**: $(APPLICATION_URL)/api/info
+                    EOF
+                    echo "##vso[task.uploadsummary]$(Agent.TempDirectory)/summary.md"
+                  displayName: '📋 Create deployment summary'

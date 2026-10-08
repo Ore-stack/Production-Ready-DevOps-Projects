@@ -365,3 +365,7 @@ stages:
                 --mail-rcpt "$(NOTIFICATION_EMAIL)" \
                 --upload-file mail.txt
             displayName: '📧 Send email notification'
+            env:
+              SMTP_USERNAME: $(SMTP_USERNAME)
+              SMTP_PASSWORD: $(SMTP_PASSWORD)
+              NOTIFICATION_EMAIL: $(NOTIFICATION_EMAIL)

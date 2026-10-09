@@ -24,7 +24,7 @@ parameters:
     default: false
 
 variables:
-  - group: aws-ecs-prod
+  - group: aws-ecs-shared
   - name: CONTAINER_NAME
     value: webapp
   - name: CONTAINER_PORT
@@ -254,8 +254,7 @@ stages:
       environment: test
       dependsOn:
         - BuildPush
-      ecsService: webapp-test-service
-      taskDefinition: webapp-test-task
+      variableGroup: aws-ecs-test
       awsServiceConnection: aws-nonprod
 
   # ================= Deploy: Staging =================
@@ -266,8 +265,7 @@ stages:
       environment: staging
       dependsOn:
         - DeployTest
-      ecsService: webapp-staging-service
-      taskDefinition: webapp-staging-task
+      variableGroup: aws-ecs-staging
       awsServiceConnection: aws-nonprod
 
   # ================= Deploy: Production (off by default) =================
@@ -279,8 +277,7 @@ stages:
           environment: production
           dependsOn:
             - DeployStaging
-          ecsService: $(ECS_SERVICE)
-          taskDefinition: $(ECS_TASK_DEFINITION)
+          variableGroup: aws-ecs-prod
           awsServiceConnection: aws-prod
 
   # ============ Cleanup if the image push fails ============

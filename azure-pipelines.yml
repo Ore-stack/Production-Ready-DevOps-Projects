@@ -33,8 +33,6 @@ variables:
     value: 'Project 2 - CI-CD Pipeline'
   - name: TRIVY_SEVERITY
     value: 'CRITICAL,HIGH'
-  - name: AWS_SERVICE_CONNECTION
-    value: aws-prod
   - name: npm_config_cache
     value: $(Pipeline.Workspace)/.npm
 
@@ -207,7 +205,7 @@ stages:
           - task: AWSShellScript@1
             displayName: '🔐 Login to Amazon ECR'
             inputs:
-              awsCredentials: $(AWS_SERVICE_CONNECTION)
+              awsCredentials: aws-nonprod
               regionName: $(AWS_REGION)
               scriptType: inline
               inlineScript: |
@@ -240,7 +238,7 @@ stages:
           - task: AWSShellScript@1
             displayName: '📤 Push image to ECR'
             inputs:
-              awsCredentials: $(AWS_SERVICE_CONNECTION)
+              awsCredentials: aws-nonprod
               regionName: $(AWS_REGION)
               scriptType: inline
               inlineScript: |
@@ -258,6 +256,7 @@ stages:
         - BuildPush
       ecsService: webapp-test-service
       taskDefinition: webapp-test-task
+      awsServiceConnection: aws-nonprod
 
   # ================= Deploy: Staging =================
   - template: templates/deploy-stage.yml
@@ -269,6 +268,7 @@ stages:
         - DeployTest
       ecsService: webapp-staging-service
       taskDefinition: webapp-staging-task
+      awsServiceConnection: aws-nonprod
 
   # ================= Deploy: Production (off by default) =================
   - ${{ if eq(parameters.deployProduction, true) }}:
@@ -281,6 +281,7 @@ stages:
             - DeployStaging
           ecsService: $(ECS_SERVICE)
           taskDefinition: $(ECS_TASK_DEFINITION)
+          awsServiceConnection: aws-prod
 
   # ============ Cleanup if the image push fails ============
   - stage: Cleanup
@@ -295,7 +296,7 @@ stages:
           - task: AWSShellScript@1
             displayName: '🗑️ Delete image tagged with this commit'
             inputs:
-              awsCredentials: $(AWS_SERVICE_CONNECTION)
+              awsCredentials: aws-nonprod
               regionName: $(AWS_REGION)
               scriptType: inline
               inlineScript: |
@@ -365,7 +366,3 @@ stages:
                 --mail-rcpt "$(NOTIFICATION_EMAIL)" \
                 --upload-file mail.txt
             displayName: '📧 Send email notification'
-            env:
-              SMTP_USERNAME: $(SMTP_USERNAME)
-              SMTP_PASSWORD: $(SMTP_PASSWORD)
-              NOTIFICATION_EMAIL: $(NOTIFICATION_EMAIL)

@@ -15,6 +15,8 @@ parameters:
     type: string
   - name: taskDefinition
     type: string
+  - name: awsServiceConnection   # AWS service connection used by this stage
+    type: string
 
 stages:
   - stage: ${{ parameters.stageName }}
@@ -32,7 +34,7 @@ stages:
                 - task: AWSShellScript@1
                   displayName: '📋 Verify AWS access and image'
                   inputs:
-                    awsCredentials: $(AWS_SERVICE_CONNECTION)
+                    awsCredentials: ${{ parameters.awsServiceConnection }}
                     regionName: $(AWS_REGION)
                     scriptType: inline
                     inlineScript: |
@@ -45,7 +47,7 @@ stages:
                 - task: AWSShellScript@1
                   displayName: '📝 Render, register and deploy task definition'
                   inputs:
-                    awsCredentials: $(AWS_SERVICE_CONNECTION)
+                    awsCredentials: ${{ parameters.awsServiceConnection }}
                     regionName: $(AWS_REGION)
                     scriptType: inline
                     inlineScript: |
@@ -80,7 +82,7 @@ stages:
                   displayName: '⏳ Wait for service stabilization'
                   timeoutInMinutes: 12
                   inputs:
-                    awsCredentials: $(AWS_SERVICE_CONNECTION)
+                    awsCredentials: ${{ parameters.awsServiceConnection }}
                     regionName: $(AWS_REGION)
                     scriptType: inline
                     inlineScript: |
@@ -91,7 +93,7 @@ stages:
                 - task: AWSShellScript@1
                   displayName: '🌐 Get application URL'
                   inputs:
-                    awsCredentials: $(AWS_SERVICE_CONNECTION)
+                    awsCredentials: ${{ parameters.awsServiceConnection }}
                     regionName: $(AWS_REGION)
                     scriptType: inline
                     inlineScript: |

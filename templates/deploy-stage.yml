@@ -1,32 +1,39 @@
 # templates/deploy-stage.yml
-# Deploys an already-pushed image (tagged with the commit SHA) to one ECS service.
+# Deploys the already-pushed image (tagged with the commit SHA) to one ECS service.
+# ECS_CLUSTER, ECS_SERVICE and ECS_TASK_DEFINITION come from the per-environment variable group.
 
 parameters:
   - name: stageName
     type: string
   - name: displayName
     type: string
-  - name: environment      # Azure DevOps environment name (approvals live here)
+  - name: environment          # Azure DevOps environment (approvals/checks live here)
     type: string
   - name: dependsOn
     type: object
     default: []
-  - name: ecsService
+  - name: variableGroup        # per-environment variable group
     type: string
-  - name: taskDefinition
+  - name: awsServiceConnection # AWS service connection used by this stage
     type: string
-  - name: awsServiceConnection   # AWS service connection used by this stage
+  - name: runSmokeTest
+    type: boolean
+    default: true
+  - name: healthPath
     type: string
+    default: /health
 
 stages:
   - stage: ${{ parameters.stageName }}
     displayName: ${{ parameters.displayName }}
     dependsOn: ${{ parameters.dependsOn }}
+    variables:
+      - group: ${{ parameters.variableGroup }}
     jobs:
       - deployment: Deploy
         displayName: 'Deploy to ${{ parameters.environment }}'
         environment: ${{ parameters.environment }}
-        timeoutInMinutes: 20
+        timeoutInMinutes: 25
         strategy:
           runOnce:
             deploy:
@@ -57,7 +64,7 @@ stages:
                       echo "Deploying $IMAGE_URI to ${{ parameters.environment }}"
 
                       aws ecs describe-task-definition \
-                        --task-definition "${{ parameters.taskDefinition }}" \
+                        --task-definition "$(ECS_TASK_DEFINITION)" \
                         --query taskDefinition > task-definition.json
                       [ -s task-definition.json ] || { echo "❌ Failed to download task definition"; exit 1; }
 
@@ -71,24 +78,40 @@ stages:
                         --cli-input-json file://rendered-task-definition.json \
                         --query taskDefinition.taskDefinitionArn --output text)
                       echo "✅ Registered $NEW_ARN"
+                      echo "##vso[task.setvariable variable=NEW_TASK_DEF_ARN]$NEW_ARN"
 
+                      # Circuit breaker: ECS rolls back automatically if the new tasks keep failing
                       aws ecs update-service \
                         --cluster "$(ECS_CLUSTER)" \
-                        --service "${{ parameters.ecsService }}" \
-                        --task-definition "$NEW_ARN" > /dev/null
+                        --service "$(ECS_SERVICE)" \
+                        --task-definition "$NEW_ARN" \
+                        --deployment-configuration "deploymentCircuitBreaker={enable=true,rollback=true},maximumPercent=200,minimumHealthyPercent=100" \
+                        > /dev/null
                       echo "🚀 Service update submitted"
 
                 - task: AWSShellScript@1
-                  displayName: '⏳ Wait for service stabilization'
-                  timeoutInMinutes: 12
+                  displayName: '⏳ Wait for service and confirm no rollback'
+                  timeoutInMinutes: 15
                   inputs:
                     awsCredentials: ${{ parameters.awsServiceConnection }}
                     regionName: $(AWS_REGION)
                     scriptType: inline
                     inlineScript: |
+                      set -euo pipefail
                       aws ecs wait services-stable \
-                        --cluster "$(ECS_CLUSTER)" --services "${{ parameters.ecsService }}"
-                      echo "✅ Service is stable"
+                        --cluster "$(ECS_CLUSTER)" --services "$(ECS_SERVICE)"
+
+                      # After a rollback the service is also "stable", so confirm the
+                      # primary deployment is really the revision we just registered.
+                      ACTIVE=$(aws ecs describe-services --cluster "$(ECS_CLUSTER)" \
+                        --services "$(ECS_SERVICE)" \
+                        --query 'services[0].deployments[?status==`PRIMARY`].taskDefinition | [0]' \
+                        --output text)
+                      if [ "$ACTIVE" != "$(NEW_TASK_DEF_ARN)" ]; then
+                        echo "❌ Deployment was rolled back. Service is running: $ACTIVE"
+                        exit 1
+                      fi
+                      echo "✅ Service is stable on $ACTIVE"
 
                 - task: AWSShellScript@1
                   displayName: '🌐 Get application URL'
@@ -99,7 +122,7 @@ stages:
                     inlineScript: |
                       set -euo pipefail
                       TASK_ARN=$(aws ecs list-tasks --cluster "$(ECS_CLUSTER)" \
-                        --service-name "${{ parameters.ecsService }}" \
+                        --service-name "$(ECS_SERVICE)" \
                         --query 'taskArns[0]' --output text)
                       if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
                         echo "❌ No running tasks found"; exit 1
@@ -119,16 +142,30 @@ stages:
                       echo "##vso[task.setvariable variable=APPLICATION_URL]http://$PUBLIC_IP:$(CONTAINER_PORT)"
                       echo "✅ Application URL determined"
 
+                - ${{ if eq(parameters.runSmokeTest, true) }}:
+                    - script: |
+                        URL="$(APPLICATION_URL)${{ parameters.healthPath }}"
+                        echo "Smoke testing $URL"
+                        for i in $(seq 1 12); do
+                          if curl -fsS --max-time 5 "$URL" > /dev/null; then
+                            echo "✅ Healthy (attempt $i)"; exit 0
+                          fi
+                          echo "Attempt $i failed; retrying in 10s..."
+                          sleep 10
+                        done
+                        echo "❌ Smoke test failed for $URL"
+                        exit 1
+                      displayName: '🩺 Smoke test'
+
                 - script: |
-                    cat > $(Agent.TempDirectory)/summary.md <<EOF
+                    cat > $(Agent.TempDirectory)/summary.md <<SUMMARY
                     # 🚀 Deployed to ${{ parameters.environment }}
 
                     - **Commit**: $(Build.SourceVersion)
                     - **Deployed by**: $(Build.RequestedFor)
-                    - **Service**: ${{ parameters.ecsService }}
+                    - **Service**: $(ECS_SERVICE)
                     - **Application**: $(APPLICATION_URL)
-                    - **Health check**: $(APPLICATION_URL)/health
-                    - **API info**: $(APPLICATION_URL)/api/info
-                    EOF
+                    - **Health check**: $(APPLICATION_URL)${{ parameters.healthPath }}
+                    SUMMARY
                     echo "##vso[task.uploadsummary]$(Agent.TempDirectory)/summary.md"
                   displayName: '📋 Create deployment summary'
